@@ -205,3 +205,33 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# --- Django project extras ---
+# Local database (if used)
+db.sqlite3
+db.sqlite3-journal
+
+# Static & media files (auto-generated)
+staticfiles/
+media/
+
+# Django secret key / environment
+.env
+
+# --- Docker related ---
+# Docker local files and logs
+docker-compose.override.yml
+*.pid
+*.log
+*.bak
+*.seed
+*.pid.lock
+
+# Docker volumes or temp data
+postgres_data/
+*.tar
+
+# --- Editor / system ---
+.DS_Store
+.vscode/
+.idea/
