@@ -139,6 +139,9 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Custom User Model
+AUTH_USER_MODEL = 'accounts.User'
+
 # REST Framework settings
 REST_FRAMEWORK = {
     # 인증 클래스 설정
