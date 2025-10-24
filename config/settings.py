@@ -29,6 +29,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+SECRET_KEY = os.getenv("SECRET_KEY", "temporary-dev-secret-key")
+
 
 # Application definition
 
@@ -169,7 +171,7 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
     'ALGORITHM': 'HS256',
-    'SIGNING_KEY': os.getenv("JWT_SECRET_KEY", "SECRET_KEY"),
+    'SIGNING_KEY': os.getenv("JWT_SECRET_KEY", "default_secret_key"),
 }
 
 # Redis settings

@@ -245,7 +245,7 @@ http://localhost:8000/api/docs/ 를 통해서 API 문서 ( Swagger ) 를 확인�
 
 ```bash
 # 전체 테스트 실행 ( -v : verbose 모드로 함수명 노출, --cov : 커버리지 포함 )
-docker-compose exec web pytest -v --cov
+source venv/bin/activate && DB_HOST=localhost python manage.py test accounts.tests -v 2
 ```
 
 
