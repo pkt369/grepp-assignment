@@ -8,6 +8,7 @@ from django.contrib.contenttypes.models import ContentType
 
 from accounts.models import User
 from tests.models import Test, TestRegistration
+from courses.models import Course, CourseRegistration
 from payments.models import Payment
 
 
@@ -16,6 +17,7 @@ class UserFactory(DjangoModelFactory):
 
     class Meta:
         model = User
+        skip_postgeneration_save = True
 
     email = Sequence(lambda n: f'user{n}@example.com')
     username = Sequence(lambda n: f'user{n}')
@@ -46,6 +48,31 @@ class TestRegistrationFactory(DjangoModelFactory):
     test = SubFactory(TestFactory)
     status = 'applied'
     applied_at = LazyFunction(timezone.now)
+
+
+class CourseFactory(DjangoModelFactory):
+    """Course Factory"""
+
+    class Meta:
+        model = Course
+
+    title = Sequence(lambda n: f'Course {n}')
+    description = 'Course description'
+    price = Decimal('50000.00')
+    start_at = LazyFunction(lambda: timezone.now() - timedelta(days=365))
+    end_at = LazyFunction(lambda: timezone.now() + timedelta(days=365))
+
+
+class CourseRegistrationFactory(DjangoModelFactory):
+    """CourseRegistration Factory"""
+
+    class Meta:
+        model = CourseRegistration
+
+    user = SubFactory(UserFactory)
+    course = SubFactory(CourseFactory)
+    status = 'enrolled'
+    enrolled_at = LazyFunction(timezone.now)
 
 
 class PaymentFactory(DjangoModelFactory):

@@ -1,11 +1,12 @@
 import pytest
 import time
+import uuid
 from decimal import Decimal
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from rest_framework.test import APIClient
 
 from tests.models import Test, TestRegistration
-from tests.factories import UserFactory, TestFactory
+from factories import UserFactory, TestFactory
 from payments.models import Payment
 from common.redis_lock import redis_client
 
@@ -78,8 +79,8 @@ class TestRedisLockIntegration:
 
     def test_lock_auto_expires(self):
         """Lock이 timeout 후 자동 만료되는지 검증"""
-        # Given: Lock 키 생성
-        lock_key = "lock:test:auto_expire"
+        # Given: Lock 키 생성 (유니크한 키 사용)
+        lock_key = f"lock:test:auto_expire:{uuid.uuid4()}"
 
         # When: Lock 설정 (timeout=1초)
         redis_client.set(lock_key, "test_value", ex=1)

@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.postgres.search import SearchVectorField
+from django.contrib.postgres.indexes import GinIndex
 
 
 class Course(models.Model):
@@ -10,6 +12,7 @@ class Course(models.Model):
     end_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    search_vector = SearchVectorField(null=True, blank=True)
 
     class Meta:
         db_table = 'courses'
@@ -17,6 +20,7 @@ class Course(models.Model):
             models.Index(fields=['start_at', 'end_at'], name='idx_course_dates'),
             models.Index(fields=['-created_at'], name='idx_course_created'),
             models.Index(fields=['start_at', 'end_at', '-created_at'], name='idx_course_composite'),
+            GinIndex(fields=['search_vector'], name='idx_course_search'),
         ]
 
     def is_available(self):
