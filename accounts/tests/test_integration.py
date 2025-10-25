@@ -5,7 +5,7 @@ Integration Tests for Authentication Flow
 - 회원가입 → 로그인 → 토큰 사용 → 토큰 갱신 전체 플로우
 - 다양한 실패 시나리오
 """
-from django.test import TestCase
+import pytest
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -14,12 +14,16 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-class AuthenticationFlowTest(TestCase):
+@pytest.mark.django_db
+class AuthenticationFlowTest:
     """전체 인증 플로우 통합 테스트"""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+
+
+    def setup(self, api_client):
         """테스트 클라이언트 설정"""
-        self.client = APIClient()
+        self.client = api_client
         self.signup_url = reverse('accounts:signup')
         self.login_url = reverse('accounts:login')
         self.refresh_url = reverse('accounts:token_refresh')
@@ -36,8 +40,8 @@ class AuthenticationFlowTest(TestCase):
         }
         signup_response = self.client.post(self.signup_url, signup_data)
 
-        self.assertEqual(signup_response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(signup_response.data['message'], '회원가입이 완료되었습니다.')
+        assert signup_response.status_code == status.HTTP_201_CREATED
+        assert signup_response.data['message'] == '회원가입이 완료되었습니다.'
         user_id = signup_response.data['user']['id']
 
         # 2. 로그인
@@ -47,10 +51,10 @@ class AuthenticationFlowTest(TestCase):
         }
         login_response = self.client.post(self.login_url, login_data)
 
-        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
-        self.assertIn('access', login_response.data)
-        self.assertIn('refresh', login_response.data)
-        self.assertEqual(login_response.data['user']['id'], user_id)
+        assert login_response.status_code == status.HTTP_200_OK
+        assert 'access' in login_response.data
+        assert 'refresh' in login_response.data
+        assert login_response.data['user']['id'] == user_id
 
         access_token = login_response.data['access']
         refresh_token = login_response.data['refresh']
@@ -59,17 +63,17 @@ class AuthenticationFlowTest(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
         # 실제로 인증이 필요한 엔드포인트가 있다면 여기서 테스트
         # 예: profile_response = self.client.get('/api/profile/')
-        # self.assertEqual(profile_response.status_code, status.HTTP_200_OK)
+        # assert profile_response.status_code == status.HTTP_200_OK
 
         # 4. Refresh Token으로 새 Access Token 발급
         refresh_response = self.client.post(self.refresh_url, {
             'refresh': refresh_token
         })
 
-        self.assertEqual(refresh_response.status_code, status.HTTP_200_OK)
-        self.assertIn('access', refresh_response.data)
+        assert refresh_response.status_code == status.HTTP_200_OK
+        assert 'access' in refresh_response.data
         # 새 토큰이 이전과 다른지 확인
-        self.assertNotEqual(refresh_response.data['access'], access_token)
+        assert refresh_response.data['access'] != access_token
 
     def test_signup_then_login_with_wrong_password(self):
         """
@@ -82,7 +86,7 @@ class AuthenticationFlowTest(TestCase):
             'password': 'correctpass123'
         }
         signup_response = self.client.post(self.signup_url, signup_data)
-        self.assertEqual(signup_response.status_code, status.HTTP_201_CREATED)
+        assert signup_response.status_code == status.HTTP_201_CREATED
 
         # 2. 잘못된 비밀번호로 로그인
         login_data = {
@@ -91,9 +95,9 @@ class AuthenticationFlowTest(TestCase):
         }
         login_response = self.client.post(self.login_url, login_data)
 
-        self.assertEqual(login_response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertNotIn('access', login_response.data)
-        self.assertNotIn('refresh', login_response.data)
+        assert login_response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert 'access' not in login_response.data
+        assert 'refresh' not in login_response.data
 
     def test_duplicate_signup_attempt(self):
         """
@@ -107,15 +111,15 @@ class AuthenticationFlowTest(TestCase):
 
         # 1. 첫 번째 회원가입
         first_response = self.client.post(self.signup_url, signup_data)
-        self.assertEqual(first_response.status_code, status.HTTP_201_CREATED)
+        assert first_response.status_code == status.HTTP_201_CREATED
 
         # 2. 같은 이메일로 두 번째 회원가입 시도
         signup_data['username'] = 'user2'  # username만 다르게
         second_response = self.client.post(self.signup_url, signup_data)
 
-        self.assertEqual(second_response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('errors', second_response.data)
-        self.assertIn('email', second_response.data['errors'])
+        assert second_response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'errors' in second_response.data
+        assert 'email' in second_response.data['errors']
 
     def test_login_without_signup(self):
         """
@@ -127,7 +131,7 @@ class AuthenticationFlowTest(TestCase):
         }
         login_response = self.client.post(self.login_url, login_data)
 
-        self.assertEqual(login_response.status_code, status.HTTP_401_UNAUTHORIZED)
+        assert login_response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_token_refresh_with_invalid_token(self):
         """
@@ -137,7 +141,7 @@ class AuthenticationFlowTest(TestCase):
             'refresh': 'invalid.jwt.token'
         })
 
-        self.assertEqual(refresh_response.status_code, status.HTTP_401_UNAUTHORIZED)
+        assert refresh_response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_multiple_users_isolation(self):
         """
@@ -170,11 +174,11 @@ class AuthenticationFlowTest(TestCase):
         user2_token = user2_login.data['access']
 
         # 두 토큰이 다른지 확인
-        self.assertNotEqual(user1_token, user2_token)
+        assert user1_token != user2_token
 
         # 각 사용자의 정보가 올바른지 확인
-        self.assertEqual(user1_login.data['user']['email'], 'user1@example.com')
-        self.assertEqual(user2_login.data['user']['email'], 'user2@example.com')
+        assert user1_login.data['user']['email'] == 'user1@example.com'
+        assert user2_login.data['user']['email'] == 'user2@example.com'
 
     def test_weak_password_validation(self):
         """
@@ -189,21 +193,21 @@ class AuthenticationFlowTest(TestCase):
         short_password = base_data.copy()
         short_password['password'] = 'abc123'  # 6자
         response = self.client.post(self.signup_url, short_password)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
         # 2. 숫자만 있는 비밀번호
         number_only = base_data.copy()
         number_only['email'] = 'test2@example.com'
         number_only['password'] = '12345678'
         response = self.client.post(self.signup_url, number_only)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
         # 3. 문자만 있는 비밀번호
         letter_only = base_data.copy()
         letter_only['email'] = 'test3@example.com'
         letter_only['password'] = 'abcdefgh'
         response = self.client.post(self.signup_url, letter_only)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_case_sensitive_email_login(self):
         """
@@ -226,10 +230,8 @@ class AuthenticationFlowTest(TestCase):
         # 실제 동작은 데이터베이스 설정에 따라 다를 수 있음
         login_response = self.client.post(self.login_url, login_data)
         # 대부분의 경우 로그인 실패 예상
-        self.assertIn(
-            login_response.status_code,
-            [status.HTTP_401_UNAUTHORIZED, status.HTTP_200_OK]
-        )
+        assert login_response.status_code in [status.HTTP_401_UNAUTHORIZED, status.HTTP_200_OK]
+        
 
     def test_concurrent_login_same_user(self):
         """
@@ -257,11 +259,11 @@ class AuthenticationFlowTest(TestCase):
         token2 = login2.data['access']
 
         # 두 로그인 모두 성공
-        self.assertEqual(login1.status_code, status.HTTP_200_OK)
-        self.assertEqual(login2.status_code, status.HTTP_200_OK)
+        assert login1.status_code == status.HTTP_200_OK
+        assert login2.status_code == status.HTTP_200_OK
 
         # 각 토큰이 다름 (독립적인 세션)
-        self.assertNotEqual(token1, token2)
+        assert token1 != token2
 
     def test_special_characters_in_credentials(self):
         """
@@ -274,7 +276,7 @@ class AuthenticationFlowTest(TestCase):
         }
 
         signup_response = self.client.post(self.signup_url, signup_data)
-        self.assertEqual(signup_response.status_code, status.HTTP_201_CREATED)
+        assert signup_response.status_code == status.HTTP_201_CREATED
 
         # 로그인
         login_data = {
@@ -282,7 +284,7 @@ class AuthenticationFlowTest(TestCase):
             'password': 'Pass@123!#'
         }
         login_response = self.client.post(self.login_url, login_data)
-        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+        assert login_response.status_code == status.HTTP_200_OK
 
     def test_empty_request_bodies(self):
         """
@@ -290,15 +292,15 @@ class AuthenticationFlowTest(TestCase):
         """
         # 빈 회원가입 요청
         signup_response = self.client.post(self.signup_url, {})
-        self.assertEqual(signup_response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert signup_response.status_code == status.HTTP_400_BAD_REQUEST
 
         # 빈 로그인 요청
         login_response = self.client.post(self.login_url, {})
-        self.assertEqual(login_response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert login_response.status_code == status.HTTP_400_BAD_REQUEST
 
         # 빈 토큰 갱신 요청
         refresh_response = self.client.post(self.refresh_url, {})
-        self.assertEqual(refresh_response.status_code, status.HTTP_400_BAD_REQUEST)
+        assert refresh_response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_very_long_credentials(self):
         """
@@ -313,10 +315,8 @@ class AuthenticationFlowTest(TestCase):
         signup_response = self.client.post(self.signup_url, signup_data)
         # 이메일 길이 제한에 따라 성공하거나 실패할 수 있음
         # Django의 EmailField 기본 max_length는 254
-        self.assertIn(
-            signup_response.status_code,
-            [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST]
-        )
+        assert signup_response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST]
+        
 
     def test_whitespace_in_credentials(self):
         """
@@ -331,18 +331,20 @@ class AuthenticationFlowTest(TestCase):
 
         signup_response = self.client.post(self.signup_url, signup_data)
         # Django의 EmailField는 공백을 트림하지 않으므로 실패할 가능성 높음
-        self.assertIn(
-            signup_response.status_code,
-            [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST]
-        )
+        assert signup_response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST]
+        
 
 
-class TokenAuthenticationTest(TestCase):
+@pytest.mark.django_db
+class TokenAuthenticationTest:
     """토큰 인증 관련 통합 테스트"""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+
+
+    def setup(self, api_client):
         """테스트 사용자 및 토큰 설정"""
-        self.client = APIClient()
+        self.client = api_client
         self.login_url = reverse('accounts:login')
 
         # 테스트 사용자 생성 및 로그인
@@ -367,7 +369,7 @@ class TokenAuthenticationTest(TestCase):
 
         # 실제 인증이 필요한 엔드포인트가 있다면 테스트
         # 현재는 헤더 설정만 검증
-        self.assertIsNotNone(self.client._credentials)
+        assert self.client._credentials is not None
 
     def test_authenticated_request_without_token(self):
         """

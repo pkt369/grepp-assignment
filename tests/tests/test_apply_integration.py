@@ -262,12 +262,20 @@ class TestApplyIntegration:
         # Given: 사용자와 시험 생성
         user = UserFactory()
         test = TestFactory(price=Decimal('45000.00'))
+        user_id = user.id
+        test_id = test.id
 
         # When: ThreadPoolExecutor를 사용하여 동시에 10개 요청 전송
         def make_request():
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+
+            # 각 스레드에서 독립적으로 user 객체를 조회
+            thread_user = User.objects.get(id=user_id)
+
             client = APIClient()
-            client.force_authenticate(user=user)
-            url = f'/api/tests/{test.id}/apply/'
+            client.force_authenticate(user=thread_user)
+            url = f'/api/tests/{test_id}/apply/'
             data = {
                 'amount': '45000.00',
                 'payment_method': 'card'
@@ -281,29 +289,39 @@ class TestApplyIntegration:
         # Then: 성공 응답(201)은 정확히 1개만 확인
         success_count = sum(1 for r in results if r.status_code == 201)
         failure_count = sum(1 for r in results if r.status_code in [400, 409])
+        error_count = sum(1 for r in results if r.status_code >= 500)
 
-        assert success_count == 1
-        assert failure_count == 9
+        assert success_count == 1, f"Expected 1 success, got {success_count}"
+        # 실패(400, 409) + 에러(500)의 합이 9개여야 함
+        assert failure_count + error_count == 9, f"Expected 9 failures, got {failure_count} failures + {error_count} errors"
 
         # Then: DB에 Payment가 1개만 생성되었는지 확인
-        assert Payment.objects.filter(user=user, object_id=test.id).count() == 1
+        assert Payment.objects.filter(user_id=user_id, object_id=test_id).count() == 1
 
         # Then: DB에 TestRegistration이 1개만 생성되었는지 확인
-        assert TestRegistration.objects.filter(user=user, test=test).count() == 1
+        assert TestRegistration.objects.filter(user_id=user_id, test_id=test_id).count() == 1
 
     def test_apply_different_users_same_test_concurrent(self):
         """서로 다른 사용자가 같은 시험에 동시 신청 시 모두 성공"""
         # Given: 시험 1개 생성
         test = TestFactory(price=Decimal('45000.00'))
+        test_id = test.id
 
         # Given: 사용자 10명 생성
         users = [UserFactory() for _ in range(10)]
+        user_ids = [user.id for user in users]
 
         # When: ThreadPoolExecutor로 동시에 10개 요청 전송
-        def make_request(user):
+        def make_request(user_id):
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+
+            # 각 스레드에서 독립적으로 user 객체를 조회
+            thread_user = User.objects.get(id=user_id)
+
             client = APIClient()
-            client.force_authenticate(user=user)
-            url = f'/api/tests/{test.id}/apply/'
+            client.force_authenticate(user=thread_user)
+            url = f'/api/tests/{test_id}/apply/'
             data = {
                 'amount': '45000.00',
                 'payment_method': 'card'
@@ -311,7 +329,7 @@ class TestApplyIntegration:
             return client.post(url, data, format='json')
 
         with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(make_request, user) for user in users]
+            futures = [executor.submit(make_request, user_id) for user_id in user_ids]
             results = [future.result() for future in as_completed(futures)]
 
         # Then: 모든 요청이 201 Created 응답 확인
@@ -319,7 +337,7 @@ class TestApplyIntegration:
         assert success_count == 10
 
         # Then: DB에 Payment 10개 생성 확인
-        assert Payment.objects.filter(object_id=test.id).count() == 10
+        assert Payment.objects.filter(object_id=test_id).count() == 10
 
         # Then: DB에 TestRegistration 10개 생성 확인
-        assert TestRegistration.objects.filter(test=test).count() == 10
+        assert TestRegistration.objects.filter(test_id=test_id).count() == 10

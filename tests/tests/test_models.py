@@ -1,7 +1,7 @@
 """
 Tests for Test and TestRegistration models
 """
-from django.test import TestCase
+import pytest
 from django.utils import timezone
 from django.db import IntegrityError
 from datetime import timedelta
@@ -11,11 +11,14 @@ from tests.models import Test, TestRegistration
 from accounts.models import User
 
 
-class TestModelTests(TestCase):
+@pytest.mark.django_db
+class TestTestModel:
     """Test 모델에 대한 단위 테스트"""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def setup(self, api_client):
         """각 테스트 전에 실행되는 설정"""
+        self.client = api_client
         self.now = timezone.now()
         self.test = Test.objects.create(
             title='Django Test',
@@ -34,10 +37,10 @@ class TestModelTests(TestCase):
             start_at=self.now,
             end_at=self.now + timedelta(days=30)
         )
-        self.assertEqual(test.title, 'Python Test')
-        self.assertEqual(test.price, Decimal('45000.00'))
-        self.assertIsNotNone(test.created_at)
-        self.assertIsNotNone(test.updated_at)
+        assert test.title == 'Python Test'
+        assert test.price == Decimal('45000.00')
+        assert test.created_at is not None
+        assert test.updated_at is not None
 
     def test_create_test_with_null_description(self):
         """성공: description이 null인 Test 생성"""
@@ -48,15 +51,15 @@ class TestModelTests(TestCase):
             start_at=self.now,
             end_at=self.now + timedelta(days=7)
         )
-        self.assertIsNone(test.description)
+        assert test.description is None
 
     def test_test_str_representation(self):
         """성공: __str__ 메서드 테스트"""
-        self.assertEqual(str(self.test), 'Django Test')
+        assert str(self.test) == 'Django Test'
 
     def test_is_available_when_in_range(self):
         """성공: 현재 시간이 시험 기간 내에 있을 때"""
-        self.assertTrue(self.test.is_available())
+        assert self.test.is_available()
 
     def test_is_available_when_before_start(self):
         """실패: 시험 시작 전"""
@@ -67,7 +70,7 @@ class TestModelTests(TestCase):
             start_at=self.now + timedelta(days=5),
             end_at=self.now + timedelta(days=15)
         )
-        self.assertFalse(test.is_available())
+        assert not test.is_available()
 
     def test_is_available_when_after_end(self):
         """실패: 시험 종료 후"""
@@ -78,7 +81,7 @@ class TestModelTests(TestCase):
             start_at=self.now - timedelta(days=20),
             end_at=self.now - timedelta(days=5)
         )
-        self.assertFalse(test.is_available())
+        assert not test.is_available()
 
     def test_is_available_at_exact_start_time(self):
         """엣지 케이스: 정확히 시작 시간"""
@@ -89,7 +92,7 @@ class TestModelTests(TestCase):
             start_at=self.now,
             end_at=self.now + timedelta(days=10)
         )
-        self.assertTrue(test.is_available())
+        assert test.is_available()
 
     def test_is_available_at_exact_end_time(self):
         """엣지 케이스: 정확히 종료 시간"""
@@ -102,7 +105,7 @@ class TestModelTests(TestCase):
             start_at=end_time - timedelta(days=10),
             end_at=end_time
         )
-        self.assertTrue(test.is_available())
+        assert test.is_available()
 
     def test_auto_now_add_created_at(self):
         """성공: created_at 자동 설정"""
@@ -113,12 +116,8 @@ class TestModelTests(TestCase):
             start_at=self.now,
             end_at=self.now + timedelta(days=7)
         )
-        self.assertIsNotNone(test.created_at)
-        self.assertAlmostEqual(
-            test.created_at.timestamp(),
-            self.now.timestamp(),
-            delta=2  # 2초 이내 차이 허용
-        )
+        assert test.created_at is not None
+        assert abs(test.created_at.timestamp() - self.now.timestamp()) <= 2
 
     def test_auto_now_updated_at(self):
         """성공: updated_at 자동 업데이트"""
@@ -126,14 +125,17 @@ class TestModelTests(TestCase):
         self.test.title = 'Updated Title'
         self.test.save()
         self.test.refresh_from_db()
-        self.assertGreater(self.test.updated_at, old_updated_at)
+        assert self.test.updated_at > old_updated_at
 
 
-class TestRegistrationModelTests(TestCase):
+@pytest.mark.django_db
+class TestTestRegistrationModel:
     """TestRegistration 모델에 대한 단위 테스트"""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def setup(self, api_client):
         """각 테스트 전에 실행되는 설정"""
+        self.client = api_client
         self.user = User.objects.create_user(
             email='test@example.com',
             username='testuser',
@@ -153,10 +155,10 @@ class TestRegistrationModelTests(TestCase):
             user=self.user,
             test=self.test
         )
-        self.assertEqual(registration.user, self.user)
-        self.assertEqual(registration.test, self.test)
-        self.assertEqual(registration.status, TestRegistration.Status.APPLIED)
-        self.assertIsNotNone(registration.applied_at)
+        assert registration.user == self.user
+        assert registration.test == self.test
+        assert registration.status == TestRegistration.Status.APPLIED
+        assert registration.applied_at is not None
 
     def test_registration_str_representation(self):
         """성공: __str__ 메서드 테스트"""
@@ -165,7 +167,7 @@ class TestRegistrationModelTests(TestCase):
             test=self.test
         )
         expected = f"{self.user.email} - {self.test.title}"
-        self.assertEqual(str(registration), expected)
+        assert str(registration) == expected
 
     def test_default_status_is_applied(self):
         """성공: 기본 status가 APPLIED"""
@@ -173,7 +175,7 @@ class TestRegistrationModelTests(TestCase):
             user=self.user,
             test=self.test
         )
-        self.assertEqual(registration.status, TestRegistration.Status.APPLIED)
+        assert registration.status == TestRegistration.Status.APPLIED
 
     def test_status_choices(self):
         """성공: 모든 status choices 테스트"""
@@ -183,19 +185,19 @@ class TestRegistrationModelTests(TestCase):
         )
 
         # APPLIED
-        self.assertEqual(registration.status, 'applied')
+        assert registration.status == 'applied'
 
         # COMPLETED
         registration.status = TestRegistration.Status.COMPLETED
         registration.completed_at = timezone.now()
         registration.save()
-        self.assertEqual(registration.status, 'completed')
+        assert registration.status == 'completed'
 
         # CANCELLED
         registration.status = TestRegistration.Status.CANCELLED
         registration.cancelled_at = timezone.now()
         registration.save()
-        self.assertEqual(registration.status, 'cancelled')
+        assert registration.status == 'cancelled'
 
     def test_unique_together_constraint(self):
         """실패: 동일한 user와 test로 중복 등록 시도"""
@@ -204,7 +206,7 @@ class TestRegistrationModelTests(TestCase):
             test=self.test
         )
 
-        with self.assertRaises(IntegrityError):
+        with pytest.raises(IntegrityError):
             TestRegistration.objects.create(
                 user=self.user,
                 test=self.test
@@ -227,8 +229,8 @@ class TestRegistrationModelTests(TestCase):
             test=self.test
         )
 
-        self.assertNotEqual(reg1.user, reg2.user)
-        self.assertEqual(reg1.test, reg2.test)
+        assert reg1.user != reg2.user
+        assert reg1.test == reg2.test
 
     def test_same_user_different_tests(self):
         """성공: 같은 사용자가 다른 시험에 등록"""
@@ -249,8 +251,8 @@ class TestRegistrationModelTests(TestCase):
             test=test2
         )
 
-        self.assertEqual(reg1.user, reg2.user)
-        self.assertNotEqual(reg1.test, reg2.test)
+        assert reg1.user == reg2.user
+        assert reg1.test != reg2.test
 
     def test_cascade_delete_user(self):
         """성공: User 삭제 시 연관된 Registration도 삭제"""
@@ -259,9 +261,9 @@ class TestRegistrationModelTests(TestCase):
             test=self.test
         )
 
-        self.assertEqual(TestRegistration.objects.count(), 1)
+        assert TestRegistration.objects.count() == 1
         self.user.delete()
-        self.assertEqual(TestRegistration.objects.count(), 0)
+        assert TestRegistration.objects.count() == 0
 
     def test_cascade_delete_test(self):
         """성공: Test 삭제 시 연관된 Registration도 삭제"""
@@ -270,9 +272,9 @@ class TestRegistrationModelTests(TestCase):
             test=self.test
         )
 
-        self.assertEqual(TestRegistration.objects.count(), 1)
+        assert TestRegistration.objects.count() == 1
         self.test.delete()
-        self.assertEqual(TestRegistration.objects.count(), 0)
+        assert TestRegistration.objects.count() == 0
 
     def test_nullable_timestamp_fields(self):
         """성공: completed_at, cancelled_at은 nullable"""
@@ -281,8 +283,8 @@ class TestRegistrationModelTests(TestCase):
             test=self.test
         )
 
-        self.assertIsNone(registration.completed_at)
-        self.assertIsNone(registration.cancelled_at)
+        assert registration.completed_at is None
+        assert registration.cancelled_at is None
 
     def test_completed_at_timestamp(self):
         """성공: completed_at 설정"""
@@ -296,8 +298,8 @@ class TestRegistrationModelTests(TestCase):
         registration.completed_at = now
         registration.save()
 
-        self.assertIsNotNone(registration.completed_at)
-        self.assertEqual(registration.completed_at, now)
+        assert registration.completed_at is not None
+        assert registration.completed_at == now
 
     def test_cancelled_at_timestamp(self):
         """성공: cancelled_at 설정"""
@@ -311,8 +313,8 @@ class TestRegistrationModelTests(TestCase):
         registration.cancelled_at = now
         registration.save()
 
-        self.assertIsNotNone(registration.cancelled_at)
-        self.assertEqual(registration.cancelled_at, now)
+        assert registration.cancelled_at is not None
+        assert registration.cancelled_at == now
 
     def test_related_name_from_test(self):
         """성공: Test에서 registrations로 접근"""
@@ -321,11 +323,8 @@ class TestRegistrationModelTests(TestCase):
             test=self.test
         )
 
-        self.assertEqual(self.test.registrations.count(), 1)
-        self.assertEqual(
-            self.test.registrations.first().user,
-            self.user
-        )
+        assert self.test.registrations.count() == 1
+        assert self.test.registrations.first().user == self.user
 
     def test_related_name_from_user(self):
         """성공: User에서 test_registrations로 접근"""
@@ -334,8 +333,5 @@ class TestRegistrationModelTests(TestCase):
             test=self.test
         )
 
-        self.assertEqual(self.user.test_registrations.count(), 1)
-        self.assertEqual(
-            self.user.test_registrations.first().test,
-            self.test
-        )
+        assert self.user.test_registrations.count() == 1
+        assert self.user.test_registrations.first().test == self.test
