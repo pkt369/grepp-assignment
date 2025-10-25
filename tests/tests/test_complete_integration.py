@@ -4,7 +4,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from tests.models import Test, TestRegistration
-from tests.factories import UserFactory, TestFactory, TestRegistrationFactory
+from factories import UserFactory, TestFactory, TestRegistrationFactory
 
 
 @pytest.mark.django_db(transaction=True)

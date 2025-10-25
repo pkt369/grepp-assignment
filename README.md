@@ -245,7 +245,7 @@ http://localhost:8000/api/docs/ 를 통해서 API 문서 ( Swagger ) 를 확인�
 
 ```bash
 # 테스트 실행 
-DB_HOST=localhost REDIS_HOST=localhost pytest
+source venv/bin/activate && DB_HOST=localhost REDIS_HOST=localhost pytest
 ```
 
 

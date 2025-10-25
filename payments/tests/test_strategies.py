@@ -11,7 +11,7 @@ from payments.strategies import (
 )
 from payments.models import Payment
 from tests.models import Test
-from tests.factories import UserFactory, TestFactory
+from factories import UserFactory, TestFactory
 
 User = get_user_model()
 
