@@ -1,7 +1,7 @@
 """
 Integration tests for the tests app - End-to-End scenarios
 """
-from django.test import TestCase
+import pytest
 from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta
@@ -13,12 +13,16 @@ from tests.models import Test, TestRegistration
 from accounts.models import User
 
 
-class TestListIntegrationTests(TestCase):
+@pytest.mark.django_db
+class TestListIntegrationTests:
     """시험 목록 조회 통합 테스트 - 전체 시나리오"""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+
+
+    def setup(self, api_client):
         """테스트 환경 설정"""
-        self.client = APIClient()
+        self.client = api_client
         self.now = timezone.now()
 
         # 여러 사용자 생성
@@ -80,37 +84,37 @@ class TestListIntegrationTests(TestCase):
         # 1. 인증 없이 접근 시도
         url = reverse('test-list')
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
         # 2. 로그인
         self.client.force_authenticate(user=self.user1)
 
         # 3. 전체 시험 목록 조회
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['count'], 3)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 3
 
         # 4. 응시 가능한 시험만 필터링
         response = self.client.get(url, {'status': 'available'})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['count'], 2)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 2
         ids = [r['id'] for r in response.data['results']]
-        self.assertIn(django_test.id, ids)
-        self.assertIn(python_test.id, ids)
-        self.assertNotIn(future_test.id, ids)
+        assert django_test.id in ids
+        assert python_test.id in ids
+        assert future_test.id not in ids
 
         # 5. Django 검색
         response = self.client.get(url, {'search': 'Django'})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['count'], 2)  # Django Advanced와 Django REST
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 2  # Django Advanced와 Django REST
 
         # 6. 인기순 정렬
         response = self.client.get(url, {'sort': 'popular'})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        assert response.status_code == status.HTTP_200_OK
         results = response.data['results']
         # django_test(2명) > python_test(1명) > future_test(0명)
-        self.assertEqual(results[0]['id'], django_test.id)
-        self.assertEqual(results[0]['registration_count'], 2)
+        assert results[0]['id'] == django_test.id
+        assert results[0]['registration_count'] == 2
 
     def test_multi_user_registration_tracking(self):
         """
@@ -137,8 +141,8 @@ class TestListIntegrationTests(TestCase):
         self.client.force_authenticate(user=self.user1)
         response = self.client.get(url)
         result = next(r for r in response.data['results'] if r['id'] == test.id)
-        self.assertFalse(result['is_registered'])
-        self.assertEqual(result['registration_count'], 0)
+        assert not result['is_registered']
+        assert result['registration_count'] == 0
 
         # 2. user1 등록
         TestRegistration.objects.create(user=self.user1, test=test)
@@ -146,15 +150,15 @@ class TestListIntegrationTests(TestCase):
         # 3. user1 다시 조회
         response = self.client.get(url)
         result = next(r for r in response.data['results'] if r['id'] == test.id)
-        self.assertTrue(result['is_registered'])
-        self.assertEqual(result['registration_count'], 1)
+        assert result['is_registered']
+        assert result['registration_count'] == 1
 
         # 4. user2 조회
         self.client.force_authenticate(user=self.user2)
         response = self.client.get(url)
         result = next(r for r in response.data['results'] if r['id'] == test.id)
-        self.assertFalse(result['is_registered'])  # user2는 등록 안 함
-        self.assertEqual(result['registration_count'], 1)  # 하지만 총 등록자는 1명
+        assert not result['is_registered']  # user2는 등록 안 함
+        assert result['registration_count'] == 1  # 하지만 총 등록자는 1명
 
         # 5. user2 등록
         TestRegistration.objects.create(user=self.user2, test=test)
@@ -163,14 +167,14 @@ class TestListIntegrationTests(TestCase):
         self.client.force_authenticate(user=self.user1)
         response = self.client.get(url)
         result = next(r for r in response.data['results'] if r['id'] == test.id)
-        self.assertTrue(result['is_registered'])
-        self.assertEqual(result['registration_count'], 2)
+        assert result['is_registered']
+        assert result['registration_count'] == 2
 
         self.client.force_authenticate(user=self.user2)
         response = self.client.get(url)
         result = next(r for r in response.data['results'] if r['id'] == test.id)
-        self.assertTrue(result['is_registered'])
-        self.assertEqual(result['registration_count'], 2)
+        assert result['is_registered']
+        assert result['registration_count'] == 2
 
     def test_complex_filtering_scenario(self):
         """
@@ -238,15 +242,15 @@ class TestListIntegrationTests(TestCase):
             'sort': 'popular'
         })
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['count'], 2)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 2
 
         results = response.data['results']
         # 인기순: django_popular(3명) > django_less_popular(1명)
-        self.assertEqual(results[0]['id'], django_popular.id)
-        self.assertEqual(results[0]['registration_count'], 3)
-        self.assertEqual(results[1]['id'], django_less_popular.id)
-        self.assertEqual(results[1]['registration_count'], 1)
+        assert results[0]['id'] == django_popular.id
+        assert results[0]['registration_count'] == 3
+        assert results[1]['id'] == django_less_popular.id
+        assert results[1]['registration_count'] == 1
 
     def test_search_with_multiple_keywords(self):
         """
@@ -284,19 +288,19 @@ class TestListIntegrationTests(TestCase):
 
         # 1. 단일 키워드: Django
         response = self.client.get(url, {'search': 'Django'})
-        self.assertEqual(response.data['count'], 1)
+        assert response.data['count'] == 1
 
         # 2. AND 검색: Django REST (둘 다 포함)
         response = self.client.get(url, {'search': 'Django REST'})
-        self.assertEqual(response.data['count'], 1)
+        assert response.data['count'] == 1
 
         # 3. OR 검색: Django OR Python
         response = self.client.get(url, {'search': 'Django OR Python'})
-        self.assertEqual(response.data['count'], 2)
+        assert response.data['count'] == 2
 
         # 4. OR 검색: Django OR Python OR JavaScript
         response = self.client.get(url, {'search': 'Django OR Python OR JavaScript'})
-        self.assertEqual(response.data['count'], 3)
+        assert response.data['count'] == 3
 
     def test_pagination_with_filters(self):
         """
@@ -331,18 +335,18 @@ class TestListIntegrationTests(TestCase):
 
         # Django 검색 (30개 결과)
         response = self.client.get(url, {'search': 'Django', 'page': 1})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['count'], 30)
-        self.assertEqual(len(response.data['results']), 20)  # PAGE_SIZE
-        self.assertIsNotNone(response.data['next'])
-        self.assertIsNone(response.data['previous'])
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['count'] == 30
+        assert len(response.data['results']) == 20  # PAGE_SIZE
+        assert response.data['next'] is not None
+        assert response.data['previous'] is None
 
         # 2페이지
         response = self.client.get(url, {'search': 'Django', 'page': 2})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 10)  # 나머지 10개
-        self.assertIsNone(response.data['next'])
-        self.assertIsNotNone(response.data['previous'])
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data['results']) == 10  # 나머지 10개
+        assert response.data['next'] is None
+        assert response.data['previous'] is not None
 
     def test_detail_view_integration(self):
         """
@@ -367,19 +371,19 @@ class TestListIntegrationTests(TestCase):
         # 1. 목록에서 발견
         list_url = reverse('test-list')
         list_response = self.client.get(list_url)
-        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        assert list_response.status_code == status.HTTP_200_OK
 
         # 2. 상세 조회
         detail_url = reverse('test-detail', kwargs={'pk': test.id})
         detail_response = self.client.get(detail_url)
 
         # 3. 정확한 정보 확인
-        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(detail_response.data['id'], test.id)
-        self.assertEqual(detail_response.data['title'], 'Django Advanced')
-        self.assertEqual(detail_response.data['price'], '60000.00')
-        self.assertTrue(detail_response.data['is_registered'])  # user1이 등록함
-        self.assertEqual(detail_response.data['registration_count'], 2)
+        assert detail_response.status_code == status.HTTP_200_OK
+        assert detail_response.data['id'] == test.id
+        assert detail_response.data['title'] == 'Django Advanced'
+        assert detail_response.data['price'] == '60000.00'
+        assert detail_response.data['is_registered']  # user1이 등록함
+        assert detail_response.data['registration_count'] == 2
 
     def test_performance_with_large_dataset(self):
         """
@@ -423,10 +427,10 @@ class TestListIntegrationTests(TestCase):
                     'sort': 'popular'
                 })
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        assert response.status_code == status.HTTP_200_OK
 
         # N+1 문제 없이 일정 수준 이하의 쿼리
-        self.assertLessEqual(len(queries), 5)
+        assert len(queries) <= 5
 
     def test_concurrent_user_views(self):
         """
@@ -481,14 +485,14 @@ class TestListIntegrationTests(TestCase):
         results3 = {r['id']: r for r in response3.data['results']}
 
         # 각 사용자는 자신이 등록한 시험만 is_registered=True
-        self.assertTrue(results1[test1.id]['is_registered'])
-        self.assertFalse(results1[test2.id]['is_registered'])
-        self.assertFalse(results1[test3.id]['is_registered'])
+        assert results1[test1.id]['is_registered']
+        assert not results1[test2.id]['is_registered']
+        assert not results1[test3.id]['is_registered']
 
-        self.assertFalse(results2[test1.id]['is_registered'])
-        self.assertTrue(results2[test2.id]['is_registered'])
-        self.assertFalse(results2[test3.id]['is_registered'])
+        assert not results2[test1.id]['is_registered']
+        assert results2[test2.id]['is_registered']
+        assert not results2[test3.id]['is_registered']
 
-        self.assertFalse(results3[test1.id]['is_registered'])
-        self.assertFalse(results3[test2.id]['is_registered'])
-        self.assertTrue(results3[test3.id]['is_registered'])
+        assert not results3[test1.id]['is_registered']
+        assert not results3[test2.id]['is_registered']
+        assert results3[test3.id]['is_registered']

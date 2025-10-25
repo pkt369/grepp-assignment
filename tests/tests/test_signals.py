@@ -1,7 +1,7 @@
 """
 Tests for search_vector signal handler
 """
-from django.test import TransactionTestCase
+import pytest
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
@@ -9,7 +9,8 @@ from decimal import Decimal
 from tests.models import Test
 
 
-class SearchVectorSignalTests(TransactionTestCase):
+@pytest.mark.django_db(transaction=True)
+class SearchVectorSignalTests:
     """
     search_vector 자동 업데이트 Signal에 대한 단위 테스트
 
@@ -17,7 +18,10 @@ class SearchVectorSignalTests(TransactionTestCase):
     이렇게 해야 post_save signal이 완전히 반영되어 search_vector가 업데이트됩니다.
     """
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+
+
+    def setup(self, api_client):
         """각 테스트 전에 실행되는 설정"""
         self.now = timezone.now()
 
@@ -35,7 +39,7 @@ class SearchVectorSignalTests(TransactionTestCase):
         test.refresh_from_db()
 
         # search_vector가 설정되어야 함
-        self.assertIsNotNone(test.search_vector)
+        assert test.search_vector is not None
 
     def test_search_vector_contains_title(self):
         """성공: search_vector에 title 내용이 포함"""
@@ -54,7 +58,7 @@ class SearchVectorSignalTests(TransactionTestCase):
         search_query = SearchQuery('Django', search_type='websearch')
         results = Test.objects.filter(search_vector=search_query)
 
-        self.assertIn(test, results)
+        assert test in results
 
     def test_search_vector_contains_description(self):
         """성공: search_vector에 description 내용이 포함"""
@@ -73,7 +77,7 @@ class SearchVectorSignalTests(TransactionTestCase):
         search_query = SearchQuery('Django', search_type='websearch')
         results = Test.objects.filter(search_vector=search_query)
 
-        self.assertIn(test, results)
+        assert test in results
 
     def test_search_vector_update_on_title_change(self):
         """성공: title 변경 시 search_vector 업데이트"""
@@ -97,13 +101,13 @@ class SearchVectorSignalTests(TransactionTestCase):
         search_query = SearchQuery('Django', search_type='websearch')
         results = Test.objects.filter(search_vector=search_query)
 
-        self.assertIn(test, results)
+        assert test in results
 
         # 이전 title로는 검색 불가
         search_query_old = SearchQuery('Original', search_type='websearch')
         results_old = Test.objects.filter(search_vector=search_query_old)
 
-        self.assertNotIn(test, results_old)
+        assert test not in results_old
 
     def test_search_vector_update_on_description_change(self):
         """성공: description 변경 시 search_vector 업데이트"""
@@ -127,7 +131,7 @@ class SearchVectorSignalTests(TransactionTestCase):
         search_query = SearchQuery('Django', search_type='websearch')
         results = Test.objects.filter(search_vector=search_query)
 
-        self.assertIn(test, results)
+        assert test in results
 
     def test_search_vector_with_null_description(self):
         """성공: description이 null일 때도 search_vector 업데이트"""
@@ -142,14 +146,14 @@ class SearchVectorSignalTests(TransactionTestCase):
         test.refresh_from_db()
 
         # search_vector가 설정되어야 함
-        self.assertIsNotNone(test.search_vector)
+        assert test.search_vector is not None
 
         # title로 검색 가능해야 함
         from django.contrib.postgres.search import SearchQuery
         search_query = SearchQuery('Django', search_type='websearch')
         results = Test.objects.filter(search_vector=search_query)
 
-        self.assertIn(test, results)
+        assert test in results
 
     def test_search_vector_with_empty_description(self):
         """성공: description이 빈 문자열일 때도 search_vector 업데이트"""
@@ -164,7 +168,7 @@ class SearchVectorSignalTests(TransactionTestCase):
         test.refresh_from_db()
 
         # search_vector가 설정되어야 함
-        self.assertIsNotNone(test.search_vector)
+        assert test.search_vector is not None
 
     def test_search_vector_case_insensitive(self):
         """성공: search_vector는 대소문자 구분 없음"""
@@ -189,8 +193,8 @@ class SearchVectorSignalTests(TransactionTestCase):
         results_lower = Test.objects.filter(search_vector=search_query_lower)
 
         # 둘 다 검색 가능해야 함
-        self.assertIn(test, results_upper)
-        self.assertIn(test, results_lower)
+        assert test in results_upper
+        assert test in results_lower
 
     def test_search_vector_multiple_words(self):
         """성공: 여러 단어를 포함한 search_vector"""
@@ -210,7 +214,7 @@ class SearchVectorSignalTests(TransactionTestCase):
         for keyword in ['Django', 'REST', 'testing', 'Advanced']:
             search_query = SearchQuery(keyword, search_type='websearch')
             results = Test.objects.filter(search_vector=search_query)
-            self.assertIn(test, results, f'Should find test with keyword: {keyword}')
+            assert test in results, f'Should find test with keyword: {keyword}'
 
     def test_search_vector_weight_priority(self):
         """성공: title이 description보다 높은 weight (A > B)"""
@@ -237,8 +241,8 @@ class SearchVectorSignalTests(TransactionTestCase):
         search_query = SearchQuery('Django', search_type='websearch')
         results = Test.objects.filter(search_vector=search_query)
 
-        self.assertIn(test1, results)
-        self.assertIn(test2, results)
+        assert test1 in results
+        assert test2 in results
 
     def test_search_vector_special_characters(self):
         """성공: 특수 문자가 포함된 경우"""
@@ -253,14 +257,14 @@ class SearchVectorSignalTests(TransactionTestCase):
         test.refresh_from_db()
 
         # search_vector가 설정되어야 함
-        self.assertIsNotNone(test.search_vector)
+        assert test.search_vector is not None
 
         # C++로 검색 가능해야 함
         from django.contrib.postgres.search import SearchQuery
         search_query = SearchQuery('C++', search_type='websearch')
         results = Test.objects.filter(search_vector=search_query)
 
-        self.assertIn(test, results)
+        assert test in results
 
     def test_search_vector_numbers(self):
         """성공: 숫자가 포함된 경우"""
@@ -279,7 +283,7 @@ class SearchVectorSignalTests(TransactionTestCase):
         search_query = SearchQuery('3.9', search_type='websearch')
         results = Test.objects.filter(search_vector=search_query)
 
-        self.assertIn(test, results)
+        assert test in results
 
     def test_search_vector_bulk_create_not_auto_updated(self):
         """주의: bulk_create는 signal을 트리거하지 않음"""
@@ -300,7 +304,7 @@ class SearchVectorSignalTests(TransactionTestCase):
         # search_vector가 None이어야 함
         created_tests = Test.objects.filter(title__startswith='Test')
         for test in created_tests:
-            self.assertIsNone(test.search_vector)
+            assert test.search_vector is None
 
     def test_search_vector_manual_update_after_bulk_create(self):
         """성공: bulk_create 후 수동으로 search_vector 업데이트"""
@@ -331,7 +335,7 @@ class SearchVectorSignalTests(TransactionTestCase):
         search_query = SearchQuery('Django', search_type='websearch')
         results = Test.objects.filter(search_vector=search_query)
 
-        self.assertEqual(results.count(), 5)
+        assert results.count() == 5
 
     def test_search_vector_update_only_when_needed(self):
         """성공: 관련 없는 필드 변경 시에도 search_vector 업데이트"""
@@ -353,7 +357,7 @@ class SearchVectorSignalTests(TransactionTestCase):
 
         # search_vector는 업데이트되었지만 내용은 동일해야 함
         # (post_save signal이 항상 실행되므로)
-        self.assertIsNotNone(test.search_vector)
+        assert test.search_vector is not None
 
     def test_multiple_tests_different_search_vectors(self):
         """성공: 여러 Test가 각각 다른 search_vector를 가짐"""
@@ -377,20 +381,20 @@ class SearchVectorSignalTests(TransactionTestCase):
         test2.refresh_from_db()
 
         # 각각의 search_vector가 있어야 함
-        self.assertIsNotNone(test1.search_vector)
-        self.assertIsNotNone(test2.search_vector)
+        assert test1.search_vector is not None
+        assert test2.search_vector is not None
 
         # Django 검색 시 test1만 나와야 함
         from django.contrib.postgres.search import SearchQuery
         django_query = SearchQuery('Django', search_type='websearch')
         django_results = Test.objects.filter(search_vector=django_query)
 
-        self.assertIn(test1, django_results)
-        self.assertNotIn(test2, django_results)
+        assert test1 in django_results
+        assert test2 not in django_results
 
         # Python 검색 시 test2만 나와야 함
         python_query = SearchQuery('Python', search_type='websearch')
         python_results = Test.objects.filter(search_vector=python_query)
 
-        self.assertIn(test2, python_results)
-        self.assertNotIn(test1, python_results)
+        assert test2 in python_results
+        assert test1 not in python_results

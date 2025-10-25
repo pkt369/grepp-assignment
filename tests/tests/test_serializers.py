@@ -1,7 +1,8 @@
 """
 Tests for TestSerializer
 """
-from django.test import TestCase, RequestFactory
+import pytest
+from django.test import RequestFactory
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
@@ -11,10 +12,14 @@ from tests.serializers import TestSerializer
 from accounts.models import User
 
 
-class TestSerializerTests(TestCase):
+@pytest.mark.django_db
+class TestSerializerTests:
     """TestSerializer에 대한 단위 테스트"""
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+
+
+    def setup(self, api_client):
         """각 테스트 전에 실행되는 설정"""
         self.factory = RequestFactory()
         self.user = User.objects.create_user(
@@ -58,7 +63,7 @@ class TestSerializerTests(TestCase):
         ]
 
         for field in expected_fields:
-            self.assertIn(field, data)
+            assert field in data
 
     def test_is_registered_true_when_user_registered(self):
         """성공: 사용자가 등록한 경우 is_registered=True"""
@@ -76,7 +81,7 @@ class TestSerializerTests(TestCase):
             context={'request': request}
         )
 
-        self.assertTrue(serializer.data['is_registered'])
+        assert serializer.data['is_registered']
 
     def test_is_registered_false_when_user_not_registered(self):
         """성공: 사용자가 등록하지 않은 경우 is_registered=False"""
@@ -88,7 +93,7 @@ class TestSerializerTests(TestCase):
             context={'request': request}
         )
 
-        self.assertFalse(serializer.data['is_registered'])
+        assert not serializer.data['is_registered']
 
     def test_is_registered_false_for_unauthenticated_user(self):
         """성공: 미인증 사용자의 경우 is_registered=False"""
@@ -100,12 +105,12 @@ class TestSerializerTests(TestCase):
             context={'request': request}
         )
 
-        self.assertFalse(serializer.data['is_registered'])
+        assert not serializer.data['is_registered']
 
     def test_is_registered_false_when_no_request_context(self):
         """성공: request context가 없는 경우 is_registered=False"""
         serializer = TestSerializer(self.test)
-        self.assertFalse(serializer.data['is_registered'])
+        assert not serializer.data['is_registered']
 
     def test_is_registered_uses_annotated_flag(self):
         """성공: annotated is_registered_flag가 있으면 그것을 사용"""
@@ -127,7 +132,7 @@ class TestSerializerTests(TestCase):
         )
 
         # annotated 값이 사용되어야 함
-        self.assertTrue(serializer.data['is_registered'])
+        assert serializer.data['is_registered']
 
     def test_is_registered_fallback_to_db_query(self):
         """성공: is_registered_flag가 없으면 DB 쿼리로 fallback"""
@@ -147,7 +152,7 @@ class TestSerializerTests(TestCase):
         )
 
         # DB 쿼리를 통해 확인
-        self.assertTrue(serializer.data['is_registered'])
+        assert serializer.data['is_registered']
 
     def test_registration_count_zero(self):
         """성공: 등록자가 없을 때 registration_count=0"""
@@ -162,7 +167,7 @@ class TestSerializerTests(TestCase):
             context={'request': request}
         )
 
-        self.assertEqual(serializer.data['registration_count'], 0)
+        assert serializer.data['registration_count'] == 0
 
     def test_registration_count_multiple(self):
         """성공: 여러 명이 등록한 경우 올바른 registration_count"""
@@ -193,7 +198,7 @@ class TestSerializerTests(TestCase):
             context={'request': request}
         )
 
-        self.assertEqual(serializer.data['registration_count'], 3)
+        assert serializer.data['registration_count'] == 3
 
     def test_price_format(self):
         """성공: price가 올바른 형식으로 직렬화"""
@@ -206,7 +211,7 @@ class TestSerializerTests(TestCase):
         )
 
         # DecimalField는 문자열로 직렬화됨
-        self.assertEqual(serializer.data['price'], '50000.00')
+        assert serializer.data['price'] == '50000.00'
 
     def test_datetime_fields_format(self):
         """성공: datetime 필드들이 ISO 8601 형식으로 직렬화"""
@@ -219,14 +224,14 @@ class TestSerializerTests(TestCase):
         )
 
         # datetime 필드들이 문자열로 직렬화되어야 함
-        self.assertIsInstance(serializer.data['start_at'], str)
-        self.assertIsInstance(serializer.data['end_at'], str)
-        self.assertIsInstance(serializer.data['created_at'], str)
+        assert isinstance(serializer.data['start_at'], str)
+        assert isinstance(serializer.data['end_at'], str)
+        assert isinstance(serializer.data['created_at'], str)
 
         # ISO 8601 형식 확인 (Z로 끝나는지)
-        self.assertTrue(serializer.data['start_at'].endswith('Z'))
-        self.assertTrue(serializer.data['end_at'].endswith('Z'))
-        self.assertTrue(serializer.data['created_at'].endswith('Z'))
+        assert serializer.data['start_at'].endswith('Z')
+        assert serializer.data['end_at'].endswith('Z')
+        assert serializer.data['created_at'].endswith('Z')
 
     def test_read_only_fields(self):
         """성공: 읽기 전용 필드는 업데이트 불가"""
@@ -247,9 +252,9 @@ class TestSerializerTests(TestCase):
             context={'request': request}
         )
 
-        self.assertTrue(serializer.is_valid())
+        assert serializer.is_valid()
         # id와 created_at는 변경되지 않아야 함
-        self.assertNotEqual(self.test.id, 999)
+        assert self.test.id != 999
 
     def test_serializer_with_null_description(self):
         """성공: description이 null인 경우"""
@@ -269,7 +274,7 @@ class TestSerializerTests(TestCase):
             context={'request': request}
         )
 
-        self.assertIsNone(serializer.data['description'])
+        assert serializer.data['description'] is None
 
     def test_multiple_tests_serialization(self):
         """성공: 여러 Test 객체를 한 번에 직렬화"""
@@ -305,9 +310,9 @@ class TestSerializerTests(TestCase):
         )
 
         data = serializer.data
-        self.assertEqual(len(data), 2)
-        self.assertTrue(data[0]['is_registered'])
-        self.assertFalse(data[1]['is_registered'])
+        assert len(data) == 2
+        assert data[0]['is_registered']
+        assert not data[1]['is_registered']
 
     def test_different_user_sees_different_is_registered(self):
         """성공: 다른 사용자는 다른 is_registered 값을 봄"""
@@ -333,5 +338,5 @@ class TestSerializerTests(TestCase):
             context={'request': request2}
         )
 
-        self.assertTrue(serializer1.data['is_registered'])
-        self.assertFalse(serializer2.data['is_registered'])
+        assert serializer1.data['is_registered']
+        assert not serializer2.data['is_registered']

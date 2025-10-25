@@ -19,12 +19,20 @@ class TestRedisLockIntegration:
         # Given: 사용자와 시험 생성
         user = UserFactory()
         test = TestFactory(price=Decimal('45000.00'))
+        user_id = user.id
+        test_id = test.id
 
         # When: 동시 요청 10개 전송
         def make_request():
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+
+            # 각 스레드에서 독립적으로 user 객체를 조회
+            thread_user = User.objects.get(id=user_id)
+
             client = APIClient()
-            client.force_authenticate(user=user)
-            url = f'/api/tests/{test.id}/apply/'
+            client.force_authenticate(user=thread_user)
+            url = f'/api/tests/{test_id}/apply/'
             data = {
                 'amount': '45000.00',
                 'payment_method': 'card'
@@ -40,8 +48,8 @@ class TestRedisLockIntegration:
         assert success_count == 1
 
         # Then: 중복 생성이 방지됨을 확인
-        assert Payment.objects.filter(user=user, object_id=test.id).count() == 1
-        assert TestRegistration.objects.filter(user=user, test=test).count() == 1
+        assert Payment.objects.filter(user_id=user_id, object_id=test_id).count() == 1
+        assert TestRegistration.objects.filter(user_id=user_id, test_id=test_id).count() == 1
 
     def test_lock_released_after_exception(self, api_client):
         """예외 발생 시에도 Lock이 해제되는지 검증"""
@@ -89,13 +97,21 @@ class TestRedisLockIntegration:
         """서로 다른 사용자는 서로 다른 Lock을 사용하는지 검증"""
         # Given: 시험 1개, 사용자 5명 생성
         test = TestFactory(price=Decimal('45000.00'))
+        test_id = test.id
         users = [UserFactory() for _ in range(5)]
+        user_ids = [user.id for user in users]
 
         # When: 각 사용자가 동시에 신청
-        def make_request(user):
+        def make_request(user_id):
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+
+            # 각 스레드에서 독립적으로 user 객체를 조회
+            thread_user = User.objects.get(id=user_id)
+
             client = APIClient()
-            client.force_authenticate(user=user)
-            url = f'/api/tests/{test.id}/apply/'
+            client.force_authenticate(user=thread_user)
+            url = f'/api/tests/{test_id}/apply/'
             data = {
                 'amount': '45000.00',
                 'payment_method': 'card'
@@ -103,7 +119,7 @@ class TestRedisLockIntegration:
             return client.post(url, data, format='json')
 
         with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(make_request, user) for user in users]
+            futures = [executor.submit(make_request, user_id) for user_id in user_ids]
             results = [future.result() for future in as_completed(futures)]
 
         # Then: 모든 요청이 성공
@@ -111,19 +127,27 @@ class TestRedisLockIntegration:
         assert success_count == 5
 
         # Then: 각 사용자별로 등록 생성 확인
-        assert TestRegistration.objects.filter(test=test).count() == 5
+        assert TestRegistration.objects.filter(test_id=test_id).count() == 5
 
     def test_lock_prevents_concurrent_same_user_same_test(self):
         """같은 사용자가 같은 시험에 동시 신청 시 1개만 성공"""
         # Given: 사용자와 시험 생성
         user = UserFactory()
         test = TestFactory(price=Decimal('45000.00'))
+        user_id = user.id
+        test_id = test.id
 
         # When: 같은 사용자로 동시 요청 20개
         def make_request():
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+
+            # 각 스레드에서 독립적으로 user 객체를 조회
+            thread_user = User.objects.get(id=user_id)
+
             client = APIClient()
-            client.force_authenticate(user=user)
-            url = f'/api/tests/{test.id}/apply/'
+            client.force_authenticate(user=thread_user)
+            url = f'/api/tests/{test_id}/apply/'
             data = {
                 'amount': '45000.00',
                 'payment_method': 'card'
@@ -139,20 +163,28 @@ class TestRedisLockIntegration:
         assert success_count == 1
 
         # Then: DB에 1개만 생성
-        assert TestRegistration.objects.filter(user=user, test=test).count() == 1
-        assert Payment.objects.filter(user=user, object_id=test.id).count() == 1
+        assert TestRegistration.objects.filter(user_id=user_id, test_id=test_id).count() == 1
+        assert Payment.objects.filter(user_id=user_id, object_id=test_id).count() == 1
 
     def test_lock_allows_same_user_different_tests(self):
         """같은 사용자가 다른 시험에 동시 신청 시 모두 성공"""
         # Given: 사용자 1명, 시험 5개 생성
         user = UserFactory()
+        user_id = user.id
         tests = [TestFactory(price=Decimal('45000.00')) for _ in range(5)]
+        test_ids = [test.id for test in tests]
 
         # When: 각 시험에 동시 신청
-        def make_request(test):
+        def make_request(test_id):
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+
+            # 각 스레드에서 독립적으로 user 객체를 조회
+            thread_user = User.objects.get(id=user_id)
+
             client = APIClient()
-            client.force_authenticate(user=user)
-            url = f'/api/tests/{test.id}/apply/'
+            client.force_authenticate(user=thread_user)
+            url = f'/api/tests/{test_id}/apply/'
             data = {
                 'amount': '45000.00',
                 'payment_method': 'card'
@@ -160,7 +192,7 @@ class TestRedisLockIntegration:
             return client.post(url, data, format='json')
 
         with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(make_request, test) for test in tests]
+            futures = [executor.submit(make_request, test_id) for test_id in test_ids]
             results = [future.result() for future in as_completed(futures)]
 
         # Then: 모든 요청이 성공
@@ -168,4 +200,4 @@ class TestRedisLockIntegration:
         assert success_count == 5
 
         # Then: 각 시험별로 등록 생성 확인
-        assert TestRegistration.objects.filter(user=user).count() == 5
+        assert TestRegistration.objects.filter(user_id=user_id).count() == 5
