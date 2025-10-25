@@ -50,3 +50,48 @@ class TestSerializer(serializers.ModelSerializer):
             user=request.user,
             test=obj
         ).exists()
+
+
+class TestApplySerializer(serializers.Serializer):
+    """
+    시험 응시 신청 Serializer
+
+    입력 필드:
+    - amount: 결제 금액
+    - payment_method: 결제 수단
+
+    출력 필드:
+    - payment_id: 생성된 결제 ID
+    - registration_id: 생성된 응시 등록 ID
+    """
+    # 입력 필드
+    amount = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=True
+    )
+    payment_method = serializers.ChoiceField(
+        choices=['kakaopay', 'card', 'bank_transfer'],
+        required=True
+    )
+
+    # 출력 필드 (읽기 전용)
+    payment_id = serializers.IntegerField(read_only=True)
+    registration_id = serializers.IntegerField(read_only=True)
+
+    def validate_amount(self, value):
+        """금액 검증"""
+        if value <= 0:
+            raise serializers.ValidationError("금액은 0보다 커야 합니다")
+        # if value > 100000000:  # 1억
+        #     raise serializers.ValidationError("금액은 1억을 초과할 수 없습니다")
+        return value
+
+    def validate_payment_method(self, value):
+        """결제 수단 검증"""
+        valid_methods = ['kakaopay', 'card', 'bank_transfer']
+        if value not in valid_methods:
+            raise serializers.ValidationError(
+                f"유효하지 않은 결제 수단입니다. 선택 가능: {', '.join(valid_methods)}"
+            )
+        return value
