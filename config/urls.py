@@ -21,8 +21,8 @@ from payments.urls import me_urlpatterns, payment_urlpatterns
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),
-    path('api/', include('tests.urls')),
-    path('api/', include('courses.urls')),
+    path('api/tests/', include('tests.urls')),
+    path('api/courses/', include('courses.urls')),
     path('api/me/payments/', include(me_urlpatterns)),  # 결제 내역 조회
     path('api/payments/', include(payment_urlpatterns)),  # 결제 취소
 ]
