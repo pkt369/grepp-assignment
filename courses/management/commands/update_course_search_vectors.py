@@ -35,8 +35,8 @@ class Command(BaseCommand):
             # 배치 업데이트
             Course.objects.filter(id__in=batch_ids).update(
                 search_vector=(
-                    SearchVector('title', weight='A') +
-                    SearchVector('description', weight='B')
+                    SearchVector('title', weight='A', config='simple') +
+                    SearchVector('description', weight='B', config='simple')
                 )
             )
 

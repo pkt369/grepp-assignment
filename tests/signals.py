@@ -23,7 +23,7 @@ def update_search_vector(sender, instance, created, **kwargs):
     # search_vector 업데이트
     Test.objects.filter(pk=instance.pk).update(
         search_vector=(
-            SearchVector('title', weight='A') +
-            SearchVector('description', weight='B')
+            SearchVector('title', weight='A', config='simple') +
+            SearchVector('description', weight='B', config='simple')
         )
     )

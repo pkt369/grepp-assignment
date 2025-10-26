@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.search import SearchVectorField
+from django.contrib.postgres.indexes import GinIndex
 
 
 class Payment(models.Model):
@@ -36,6 +38,7 @@ class Payment(models.Model):
     refund_reason = models.TextField(null=True, blank=True)
     paid_at = models.DateTimeField(auto_now_add=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
+    search_vector = SearchVectorField(null=True, blank=True)
 
     class Meta:
         db_table = 'payments'
@@ -43,6 +46,7 @@ class Payment(models.Model):
             models.Index(fields=['user', 'status'], name='idx_payment_user_status'),
             models.Index(fields=['paid_at'], name='idx_payment_paid_at'),
             models.Index(fields=['status', 'paid_at'], name='idx_payment_status_date'),
+            GinIndex(fields=['search_vector'], name='idx_payment_search'),
         ]
 
     def __str__(self):
