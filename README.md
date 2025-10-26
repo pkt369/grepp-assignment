@@ -22,6 +22,7 @@ Django REST Framework를 사용한 대규모 시험 응시 및 수업 수강 신
 
 ### 참고 사항
 - 실제 결제 시스템의 2단계 구조( Pre-Order => Approve ) 를 고려했으나, 현재 과제 범위에서는 결제와 주문을 하나의 트랜잭션으로 단순화하여 구현하였습니다.
+- .env 는 현업에서는 배포하지 않으나 과제를 쉽게 실행하기 위해 이번 프로젝트에서만 같이 배포합니다.
 
 <br>
 
@@ -75,8 +76,10 @@ https://github.com/pkt369/grepp-assignment.git
 cd grepp-assignment
 
 docker compose up -d --build
-docker-compose exec web python manage.py seed_all
+docker compose exec web python manage.py seed_all
 ```
+
+> 참고 seed 데이터가 100만건을 넣는 부분이라 약 2분정도가 소요 됩니다. ( 컴퓨터 사양에 따라 달라질 수 있습니다. )
 
 http://localhost:8000/api/docs/ 를 통해서 API 문서 ( Swagger ) 를 확인할 수 있습니다.
 
