@@ -4,6 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db import transaction
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 
 from payments.models import Payment
 from payments.serializers import PaymentSerializer
@@ -13,6 +15,55 @@ from courses.models import CourseRegistration
 from common.redis_lock import redis_lock
 
 
+@extend_schema_view(
+    list=extend_schema(
+        tags=['Payments'],
+        summary='결제 내역 목록 조회',
+        description='본인의 결제 내역 목록을 조회합니다. 필터링과 검색을 지원합니다.',
+        parameters=[
+            OpenApiParameter(
+                name='status',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='결제 상태 필터 (paid, cancelled, refunded)',
+                required=False,
+            ),
+            OpenApiParameter(
+                name='payment_type',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='결제 유형 필터 (test, course)',
+                required=False,
+            ),
+            OpenApiParameter(
+                name='from',
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description='결제 시작 날짜 (YYYY-MM-DD)',
+                required=False,
+            ),
+            OpenApiParameter(
+                name='to',
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description='결제 종료 날짜 (YYYY-MM-DD)',
+                required=False,
+            ),
+            OpenApiParameter(
+                name='search',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='전체 텍스트 검색 (항목 제목 검색)',
+                required=False,
+            ),
+        ],
+    ),
+    retrieve=extend_schema(
+        tags=['Payments'],
+        summary='결제 내역 상세 조회',
+        description='특정 결제 내역의 상세 정보를 조회합니다.',
+    ),
+)
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     """
     본인 결제 내역 조회 API ViewSet
@@ -21,7 +72,7 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     - 상세 조회: GET /api/me/payments/{id}/
     - 필터링: ?status=paid&payment_type=test
     - 날짜 범위: ?from=2025-01-01&to=2025-12-31
-    - FTS 검색: ?search=Django
+    - 전체 텍스트 검색: ?search=Django
     """
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
@@ -59,14 +110,27 @@ class PaymentCancelViewSet(viewsets.GenericViewSet):
         """모든 결제 조회 (권한은 cancel 액션에서 체크)"""
         return Payment.objects.all()
 
+    @extend_schema(
+        tags=['Payments'],
+        summary='결제 취소',
+        description='결제를 취소합니다. 본인의 결제만 취소할 수 있으며, 관련 응시/수강 신청도 함께 취소됩니다.',
+        request=None,
+        responses={
+            200: {'description': '결제 취소 성공'},
+            400: {'description': '이미 취소된 결제'},
+            401: {'description': '인증 필요'},
+            403: {'description': '본인의 결제가 아님'},
+            409: {'description': '동시 요청 충돌 (잠시 후 재시도)'},
+        },
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def cancel(self, request, pk=None):
         """
         결제 취소 API
 
-        POST /api/payments/{id}/cancel/
+        엔드포인트: POST /api/payments/{id}/cancel/
 
-        Response (200):
+        응답 (200):
         {
             "message": "결제가 취소되었습니다",
             "payment_id": 1,

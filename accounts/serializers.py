@@ -11,6 +11,7 @@ class UserSerializer(serializers.ModelSerializer):
     """회원가입용 Serializer"""
     email = serializers.EmailField(
         required=True,
+        help_text='이메일 주소 (로그인 ID로 사용, 고유값)',
         validators=[
             UniqueValidator(
                 queryset=User.objects.all(),
@@ -21,14 +22,19 @@ class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
         min_length=8,
-        style={'input_type': 'password'}
+        style={'input_type': 'password'},
+        help_text='비밀번호 (최소 8자, 문자와 숫자 포함)'
     )
 
     class Meta:
         model = User
         fields = ['id', 'email', 'username', 'password']
         extra_kwargs = {
-            'username': {'required': True},
+            'id': {'help_text': '사용자 고유 ID'},
+            'username': {
+                'required': True,
+                'help_text': '사용자 이름'
+            },
         }
 
     def validate_password(self, value):

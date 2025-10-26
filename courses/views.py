@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from django.db.models import Count, Exists, OuterRef
 from django.db import transaction
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 from .models import Course, CourseRegistration
 from .serializers import CourseSerializer, CourseEnrollSerializer
 from .filters import CourseFilter
@@ -12,12 +14,47 @@ from payments.strategies import PaymentStrategyFactory
 from common.redis_lock import redis_lock
 
 
+@extend_schema_view(
+    list=extend_schema(
+        tags=['Courses'],
+        summary='수업 목록 조회',
+        description='수업 목록을 조회합니다. 필터링과 정렬을 지원합니다.',
+        parameters=[
+            OpenApiParameter(
+                name='status',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='상태 필터 (available: 현재 수강 가능한 수업만)',
+                required=False,
+            ),
+            OpenApiParameter(
+                name='search',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='전체 텍스트 검색 (제목 및 설명 검색)',
+                required=False,
+            ),
+            OpenApiParameter(
+                name='sort',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='정렬 방식 (created: 최신순, popular: 인기순)',
+                required=False,
+            ),
+        ],
+    ),
+    retrieve=extend_schema(
+        tags=['Courses'],
+        summary='수업 상세 조회',
+        description='특정 수업의 상세 정보를 조회합니다.',
+    ),
+)
 class CourseViewSet(viewsets.ReadOnlyModelViewSet):
     """
     수업 API ViewSet
 
-    - 목록 조회: GET /courses/
-    - 상세 조회: GET /courses/{id}/
+    - 목록 조회: GET /api/courses/
+    - 상세 조회: GET /api/courses/{id}/
     - 필터링: ?status=available
     - 정렬: ?sort=created (최신순) 또는 ?sort=popular (인기순)
     """
@@ -78,20 +115,32 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
         context['request'] = self.request
         return context
 
+    @extend_schema(
+        tags=['Courses'],
+        summary='수업 수강 신청',
+        description='수업 수강을 신청합니다. 결제 정보를 함께 제공해야 합니다.',
+        request=CourseEnrollSerializer,
+        responses={
+            201: {'description': '수강 신청 성공'},
+            400: {'description': '잘못된 요청 (중복 신청, 금액 불일치, 기간 만료 등)'},
+            401: {'description': '인증 필요'},
+            409: {'description': '동시 요청 충돌 (잠시 후 재시도)'},
+        },
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def enroll(self, request, pk=None):
         """
         수업 수강 신청 API
 
-        POST /api/courses/{id}/enroll/
+        엔드포인트: POST /api/courses/{id}/enroll/
 
-        Request Body:
+        요청 본문:
         {
             "amount": "50000.00",
             "payment_method": "card"
         }
 
-        Response (201):
+        응답 (201):
         {
             "message": "수업 수강 신청이 완료되었습니다",
             "payment_id": 1,
@@ -209,14 +258,26 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @extend_schema(
+        tags=['Courses'],
+        summary='수업 완료 처리',
+        description='수업을 완료 처리합니다. 이미 수강 신청한 수업만 완료할 수 있습니다.',
+        request=None,
+        responses={
+            200: {'description': '수업 완료 성공'},
+            400: {'description': '이미 완료되었거나 취소된 수업'},
+            401: {'description': '인증 필요'},
+            404: {'description': '수강 신청 내역이 없음'},
+        },
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def complete(self, request, pk=None):
         """
         수업 완료 처리 API
 
-        POST /api/courses/{id}/complete/
+        엔드포인트: POST /api/courses/{id}/complete/
 
-        Response (200):
+        응답 (200):
         {
             "message": "수업이 완료되었습니다",
             "enrollment_id": 1,

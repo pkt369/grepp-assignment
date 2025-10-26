@@ -21,7 +21,7 @@ class PaymentFilter(django_filters.FilterSet):
     )
     search = django_filters.CharFilter(
         method='filter_search',
-        help_text='FTS 검색 (항목 제목 기반)'
+        help_text='전체 텍스트 검색 (항목 제목 기반)'
     )
 
     class Meta:
@@ -29,7 +29,7 @@ class PaymentFilter(django_filters.FilterSet):
         fields = ['status', 'payment_type', 'to', 'search']
 
     def filter_search(self, queryset, name, value):
-        """FTS 검색 - Payment의 search_vector 활용"""
+        """전체 텍스트 검색 - Payment의 search_vector 활용"""
         if not value:
             return queryset
 

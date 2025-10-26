@@ -10,10 +10,22 @@ class PaymentSerializer(serializers.ModelSerializer):
     - 금액, 결제 방법, 결제 대상, 항목 제목, 상태
     - 응시 또는 수강 시간
     """
-    target_title = serializers.SerializerMethodField()
-    target_type = serializers.CharField(source='payment_type', read_only=True)
-    target_id = serializers.IntegerField(source='object_id', read_only=True)
-    registration_time = serializers.SerializerMethodField()
+    target_title = serializers.SerializerMethodField(
+        help_text='결제 대상 항목의 제목 (시험 또는 수업 제목)'
+    )
+    target_type = serializers.CharField(
+        source='payment_type',
+        read_only=True,
+        help_text='결제 대상 유형 (test 또는 course)'
+    )
+    target_id = serializers.IntegerField(
+        source='object_id',
+        read_only=True,
+        help_text='결제 대상 항목의 ID'
+    )
+    registration_time = serializers.SerializerMethodField(
+        help_text='응시 또는 수강 신청 시간'
+    )
 
     class Meta:
         model = Payment
@@ -31,6 +43,15 @@ class PaymentSerializer(serializers.ModelSerializer):
             'registration_time',  # 응시 또는 수강 시간
         ]
         read_only_fields = fields
+        extra_kwargs = {
+            'id': {'help_text': '결제 고유 ID'},
+            'payment_type': {'help_text': '결제 유형 (test: 시험, course: 수업)'},
+            'amount': {'help_text': '결제 금액'},
+            'payment_method': {'help_text': '결제 수단 (kakaopay, card, bank_transfer)'},
+            'status': {'help_text': '결제 상태 (paid: 완료, cancelled: 취소, refunded: 환불)'},
+            'paid_at': {'help_text': '결제 일시'},
+            'cancelled_at': {'help_text': '취소 일시'},
+        }
 
     def get_target_title(self, obj):
         """
