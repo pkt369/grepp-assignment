@@ -27,7 +27,7 @@ Django REST Framework를 사용한 대규모 시험 응시 및 수업 수강 신
 <br>
 
 
-## 🚀 주요 기능
+## 주요 기능
 
 ### 1. 인증 시스템
 - 회원가입 (이메일 기반)
@@ -81,11 +81,25 @@ docker compose exec web python manage.py seed_all
 
 > 참고 seed 데이터가 100만건을 넣는 부분이라 약 2분정도가 소요 됩니다. ( 컴퓨터 사양에 따라 달라질 수 있습니다. )
 
-http://localhost:8000/api/docs/ 를 통해서 API 문서 ( Swagger ) 를 확인할 수 있습니다.
+<br>
+
+## API 문서
+
+API 문서는 Swagger 통해 구현하였습니다.
+
+서버 실행후 아래 링크에서 확인 가능합니다.
+
+http://localhost:8000/api/docs 
+
+혹 접근이 안되는 경우 오프라인으로 접근 가능합니다.
+
+docs/API.md 파일 참고해주세요.
 
 <br>
 
-## 📚 API 문서
+
+<details>
+<summary>API</summary>
 
 ### 인증
 | Method | Endpoint | Description | Auth Required |
@@ -114,9 +128,14 @@ http://localhost:8000/api/docs/ 를 통해서 API 문서 ( Swagger ) 를 확인�
 | GET | `/me/payments/` | 결제 내역 조회 | O |
 | POST | `/payments/{id}/cancel/` | 결제 취소 | O |
 
+</details>
+
 <br>
 
 ## 데이터베이스 설계
+
+<details>
+<summary>테이블 정보</summary>
 
 ### User (users)
 | 컬럼명 | 타입 | 제약조건 | 설명 |
@@ -235,6 +254,7 @@ http://localhost:8000/api/docs/ 를 통해서 API 문서 ( Swagger ) 를 확인�
 | User | 1:N | Payment | 한 사용자는 여러 결제 가능 |
 | Payment | N:1 | Test or Course | 결제는 시험 또는 수업과 연결 (GenericForeignKey) |
 
+</details>
 
 <br>
 

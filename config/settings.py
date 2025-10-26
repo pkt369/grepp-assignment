@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'django_filters',
+    'drf_spectacular',
     # custom apps
     'accounts',
     'tests',
@@ -161,8 +162,10 @@ REST_FRAMEWORK = {
     # 필터 백엔드 설정
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
-        'rest_framework.filters.OrderingFilter',
     ],
+
+    # API 스키마 설정
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 # Simple JWT settings
@@ -202,3 +205,24 @@ CACHES = {
 
 # Redis Lock 설정 (별도 DB)
 REDIS_LOCK_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB_LOCK}'
+
+# drf-spectacular settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': '시험 및 수업 관리 시스템 API',
+    'DESCRIPTION': '시험 응시 및 수업 수강 신청 관리 시스템입니다. JWT 인증을 사용하며, 결제 처리와 전체 텍스트 검색을 지원합니다.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': '/api',
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
+    },
+    'TAGS': [
+        {'name': 'Auth', 'description': '인증 관련 API (회원가입, 로그인, 토큰 갱신)'},
+        {'name': 'Tests', 'description': '시험 관련 API (조회, 응시 신청, 완료)'},
+        {'name': 'Courses', 'description': '수업 관련 API (조회, 수강 신청, 완료)'},
+        {'name': 'Payments', 'description': '결제 관련 API (내역 조회, 취소)'},
+    ],
+}

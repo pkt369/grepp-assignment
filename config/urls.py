@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
 from payments.urls import me_urlpatterns, payment_urlpatterns
 
 urlpatterns = [
@@ -26,3 +27,13 @@ urlpatterns = [
     path('api/me/payments/', include(me_urlpatterns)),  # 결제 내역 조회
     path('api/payments/', include(payment_urlpatterns)),  # 결제 취소
 ]
+
+# API 문서화 (개발 환경에서만)
+if settings.DEBUG:
+    from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+
+    urlpatterns += [
+        path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+        path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+        path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    ]

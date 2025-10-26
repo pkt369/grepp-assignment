@@ -11,8 +11,13 @@ class TestSerializer(serializers.ModelSerializer):
     - registration_count: 해당 시험의 총 응시자 수 (Integer)
     """
     # 추가 필드 (읽기 전용)
-    is_registered = serializers.SerializerMethodField()
-    registration_count = serializers.IntegerField(read_only=True)
+    is_registered = serializers.SerializerMethodField(
+        help_text='현재 사용자의 응시 신청 여부'
+    )
+    registration_count = serializers.IntegerField(
+        read_only=True,
+        help_text='해당 시험의 총 응시자 수'
+    )
 
     class Meta:
         model = Test
@@ -28,6 +33,15 @@ class TestSerializer(serializers.ModelSerializer):
             'registration_count',
         ]
         read_only_fields = ['id', 'created_at']
+        extra_kwargs = {
+            'id': {'help_text': '시험 고유 ID'},
+            'title': {'help_text': '시험 제목'},
+            'description': {'help_text': '시험 설명'},
+            'price': {'help_text': '시험 응시 가격'},
+            'start_at': {'help_text': '시험 시작 일시'},
+            'end_at': {'help_text': '시험 종료 일시'},
+            'created_at': {'help_text': '생성 일시'},
+        }
 
     def get_is_registered(self, obj):
         """
@@ -68,16 +82,24 @@ class TestApplySerializer(serializers.Serializer):
     amount = serializers.DecimalField(
         max_digits=10,
         decimal_places=2,
-        required=True
+        required=True,
+        help_text='결제 금액 (시험 가격과 일치해야 함)'
     )
     payment_method = serializers.ChoiceField(
         choices=['kakaopay', 'card', 'bank_transfer'],
-        required=True
+        required=True,
+        help_text='결제 수단 (kakaopay, card, bank_transfer)'
     )
 
     # 출력 필드 (읽기 전용)
-    payment_id = serializers.IntegerField(read_only=True)
-    registration_id = serializers.IntegerField(read_only=True)
+    payment_id = serializers.IntegerField(
+        read_only=True,
+        help_text='생성된 결제 ID'
+    )
+    registration_id = serializers.IntegerField(
+        read_only=True,
+        help_text='생성된 응시 등록 ID'
+    )
 
     def validate_amount(self, value):
         """금액 검증"""

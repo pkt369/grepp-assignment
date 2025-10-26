@@ -10,10 +10,16 @@ class CourseFilter(filters.FilterSet):
 
     필터:
     - status=available: 현재 수강 가능한 수업만 조회 (start_at <= now <= end_at)
-    - search: Full-Text Search로 title, description에서 검색
+    - search: 전체 텍스트 검색으로 제목과 설명에서 검색
     """
-    status = filters.CharFilter(method='filter_status')
-    search = filters.CharFilter(method='filter_search')
+    status = filters.CharFilter(
+        method='filter_status',
+        help_text='상태 필터 (available: 현재 수강 가능한 수업만)'
+    )
+    search = filters.CharFilter(
+        method='filter_search',
+        help_text='전체 텍스트 검색 (제목 및 설명 검색)'
+    )
 
     class Meta:
         model = Course
