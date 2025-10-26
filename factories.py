@@ -88,3 +88,17 @@ class PaymentFactory(DjangoModelFactory):
     amount = Decimal('45000.00')
     payment_method = 'card'
     status = 'paid'
+
+    class Params:
+        # Trait for cancelled payment
+        cancelled = factory.Trait(
+            status='cancelled',
+            cancelled_at=LazyFunction(timezone.now)
+        )
+        # Trait for course payment
+        for_course = factory.Trait(
+            payment_type='course',
+            content_type=LazyAttribute(lambda o: ContentType.objects.get_for_model(Course)),
+            object_id=LazyAttribute(lambda o: CourseFactory.create().id),
+            amount=Decimal('50000.00')
+        )

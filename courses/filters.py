@@ -43,6 +43,6 @@ class CourseFilter(filters.FilterSet):
         - search_vector 필드에서 검색 (GIN 인덱스 사용)
         """
         if value:
-            search_query = SearchQuery(value, search_type='websearch')
+            search_query = SearchQuery(value, search_type='websearch', config='simple')
             return queryset.filter(search_vector=search_query)
         return queryset
