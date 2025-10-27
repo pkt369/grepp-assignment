@@ -54,6 +54,10 @@ INSTALLED_APPS = [
     'common',
 ]
 
+# Add debug toolbar only in DEBUG mode
+if DEBUG:
+    INSTALLED_APPS += ['debug_toolbar']
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -63,6 +67,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Add debug toolbar middleware in DEBUG mode
+if DEBUG:
+    MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
 
 ROOT_URLCONF = 'config.urls'
 
@@ -226,3 +234,16 @@ SPECTACULAR_SETTINGS = {
         {'name': 'Payments', 'description': '결제 관련 API (내역 조회, 취소)'},
     ],
 }
+
+# Django Debug Toolbar settings
+if DEBUG:
+    INTERNAL_IPS = [
+        '127.0.0.1',
+        'localhost',
+        'host.docker.internal',
+    ]
+
+    DEBUG_TOOLBAR_CONFIG = {
+        'SHOW_TOOLBAR_CALLBACK': lambda request: True,
+        'RESULTS_CACHE_SIZE': 100,
+    }

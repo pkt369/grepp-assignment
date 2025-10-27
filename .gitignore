@@ -235,3 +235,7 @@ postgres_data/
 .DS_Store
 .vscode/
 .idea/
+
+
+benchmark_results.json
+explain_results.txt
