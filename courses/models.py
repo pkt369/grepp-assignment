@@ -63,6 +63,7 @@ class CourseRegistration(models.Model):
             models.Index(fields=['user', 'course'], name='idx_course_reg_unique'),
             models.Index(fields=['status'], name='idx_course_reg_status'),
             models.Index(fields=['user'], name='idx_course_reg_user'),
+            models.Index(fields=['course'], name='idx_course_reg_course'),
         ]
 
     def __str__(self):

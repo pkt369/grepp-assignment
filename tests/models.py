@@ -63,6 +63,7 @@ class TestRegistration(models.Model):
             models.Index(fields=['user', 'test'], name='idx_test_reg_unique'),
             models.Index(fields=['status'], name='idx_test_reg_status'),
             models.Index(fields=['user'], name='idx_test_reg_user'),
+            models.Index(fields=['test'], name='idx_test_reg_test'),
         ]
 
     def __str__(self):

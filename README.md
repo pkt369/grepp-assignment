@@ -23,6 +23,8 @@ Django REST Framework를 사용한 대규모 시험 응시 및 수업 수강 신
 ### 참고 사항
 - 실제 결제 시스템의 2단계 구조( Pre-Order => Approve ) 를 고려했으나, 현재 과제 범위에서는 결제와 주문을 하나의 트랜잭션으로 단순화하여 구현하였습니다.
 - .env 는 현업에서는 배포하지 않으나 과제를 쉽게 실행하기 위해 이번 프로젝트에서만 같이 배포합니다.
+- 검색은 Postgresql 의 FTS 로 진행했으나, 더 빠른 속도를 위해 Elasitc Search 나 MeiliSerach 채택 가능.
+- 실제로는 주석을 많이 달지 않으나, 이해를 위해 주석을 많이 달아두었습니다.
 
 <br>
 
@@ -80,6 +82,28 @@ docker compose exec web python manage.py seed_all
 ```
 
 > 참고 seed 데이터가 100만건을 넣는 부분이라 약 2분정도가 소요 됩니다. ( 컴퓨터 사양에 따라 달라질 수 있습니다. )
+
+<br>
+
+### 벤치마크 실행
+docker 에서 seed 데이터 넣은 후 실행
+```bash
+# 벤치마크 테스트
+docker compose exec web python manage.py benchmark --runs=5
+
+# 실제 사용되는 쿼리 확인
+docker compose exec web python manage.py explain_queries
+```
+위 명령어를 실행하면 파일이 생깁니다. 파일안에 실행한 명령어에 대한 내용이 적혀있습니다.
+
+<br>
+
+### 테스트
+
+```bash
+# 테스트 실행 
+source venv/bin/activate && DB_HOST=localhost REDIS_HOST=localhost pytest
+```
 
 <br>
 
@@ -263,13 +287,6 @@ docs/API.md 파일 참고해주세요.
 <img width="1108" height="1177" alt="Image" src="https://github.com/user-attachments/assets/f8abf49d-a871-4afe-a6dd-3b56f711ddc1" />
 
 <br>
-
-## 테스트
-
-```bash
-# 테스트 실행 
-source venv/bin/activate && DB_HOST=localhost REDIS_HOST=localhost pytest
-```
 
 
 

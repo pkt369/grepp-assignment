@@ -2,7 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Count, Exists, OuterRef
+from django.db.models import Count, Exists, OuterRef, Subquery
+from django.db.models.functions import Coalesce
 from django.db import transaction
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
@@ -72,13 +73,28 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
         """
         queryset = Course.objects.all()
 
-        # 현재 사용자
         user = self.request.user
 
-        # 1. registration_count 추가 (수강자 수)
-        queryset = queryset.annotate(
-            registration_count=Count('registrations')
-        )
+        sort = self.request.query_params.get('sort', 'created')
+
+        # Popular Sort일 때는 JOIN 사용 ( 집계 후 정렬이라 느림 )
+        if sort == 'popular':
+            queryset = queryset.annotate(
+                registration_count=Count('registrations')
+            )
+        else:
+            # 서브쿼리 사용 ( 정렬이 서브쿼리와 상관없어서 더 빠름 )
+            queryset = queryset.annotate(
+                registration_count=Coalesce(
+                    Subquery(
+                        CourseRegistration.objects.filter(course=OuterRef('pk'))
+                        .values('course')
+                        .annotate(count=Count('*'))
+                        .values('count')
+                    ),
+                    0
+                )
+            )
 
         # 2. is_registered_flag 추가 ( 현재 사용자의 수강 여부 )
         # Exists를 사용하여 네트워크 N + 1 호출 제거
@@ -93,8 +109,6 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         # 3. 정렬 처리
-        sort = self.request.query_params.get('sort', 'created')
-
         if sort == 'popular':
             # 인기순: 수강자 많은 순
             queryset = queryset.order_by('-registration_count', '-created_at')

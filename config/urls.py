@@ -28,12 +28,14 @@ urlpatterns = [
     path('api/payments/', include(payment_urlpatterns)),  # 결제 취소
 ]
 
-# API 문서화 (개발 환경에서만)
+# API 문서화 및 디버그 툴바 (개발 환경에서만)
 if settings.DEBUG:
     from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+    import debug_toolbar
 
     urlpatterns += [
         path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
         path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
         path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+        path('__debug__/', include(debug_toolbar.urls)),
     ]
