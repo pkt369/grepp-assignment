@@ -179,7 +179,7 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
                 if not course.is_available():
                     logger.warning(
                         f"Course not available: user_id={user.id}, course_id={course.id}, "
-                        f"start={course.start_date}, end={course.end_date}"
+                        f"start={course.start_at}, end={course.end_at}"
                     )
                     return Response(
                         {"error": "현재 수강 가능한 기간이 아닙니다"},
