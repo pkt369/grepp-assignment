@@ -1,3 +1,4 @@
+import logging
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
@@ -14,6 +15,8 @@ from .filters import CourseFilter
 from payments.strategies import PaymentStrategyFactory
 from common.redis_lock import redis_lock
 from common.redis_client import mark_course_updated
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema_view(
@@ -164,6 +167,9 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
                 # 4. 비즈니스 로직 검증
                 # 4-1. 중복 수강 체크
                 if CourseRegistration.objects.filter(user=user, course=course).exists():
+                    logger.warning(
+                        f"Duplicate course enrollment attempt: user_id={user.id}, course_id={course.id}"
+                    )
                     return Response(
                         {"error": "이미 수강 신청한 수업입니다"},
                         status=status.HTTP_400_BAD_REQUEST
@@ -171,6 +177,10 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
 
                 # 4-2. 수강 가능 기간 검증
                 if not course.is_available():
+                    logger.warning(
+                        f"Course not available: user_id={user.id}, course_id={course.id}, "
+                        f"start={course.start_date}, end={course.end_date}"
+                    )
                     return Response(
                         {"error": "현재 수강 가능한 기간이 아닙니다"},
                         status=status.HTTP_400_BAD_REQUEST
@@ -178,6 +188,10 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
 
                 # 4-3. 금액 일치 검증 -> 할인 정책이 있을 경우 삭제 필요
                 if validated_data['amount'] != course.price:
+                    logger.warning(
+                        f"Price mismatch: user_id={user.id}, course_id={course.id}, "
+                        f"expected={course.price}, received={validated_data['amount']}"
+                    )
                     return Response(
                         {"error": "결제 금액이 수업 가격과 일치하지 않습니다"},
                         status=status.HTTP_400_BAD_REQUEST
@@ -226,6 +240,11 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
                     )
 
                     # 6. 성공 응답
+                    logger.info(
+                        f"Course enrollment success: user_id={user.id}, course_id={course.id}, "
+                        f"payment_id={payment.id}, enrollment_id={enrollment.id}, "
+                        f"payment_method={payment_strategy.get_payment_method()}"
+                    )
                     return Response(
                         {
                             "message": "수업 수강 신청이 완료되었습니다",
@@ -239,6 +258,10 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
 
                 except ValueError as e:
                     # 지원하지 않는 결제 수단
+                    logger.error(
+                        f"Invalid payment method: user_id={user.id}, course_id={course.id}, error={str(e)}",
+                        exc_info=True
+                    )
                     return Response(
                         {"error": str(e)},
                         status=status.HTTP_400_BAD_REQUEST
@@ -247,11 +270,18 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
         except Exception as e:
             # Lock 획득 실패인지 확인
             if "Failed to acquire lock" in str(e):
+                logger.warning(
+                    f"Lock acquisition failed: user_id={user.id}, course_id={course.id}"
+                )
                 return Response(
                     {"error": "잠시 후 다시 시도해주세요"},
                     status=status.HTTP_409_CONFLICT
                 )
             # 기타 예외
+            logger.error(
+                f"Course enrollment failed: user_id={user.id}, course_id={course.id}, error={str(e)}",
+                exc_info=True
+            )
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -294,6 +324,9 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
         ).first()
 
         if not enrollment:
+            logger.warning(
+                f"Course completion failed - no enrollment: user_id={user.id}, course_id={course.id}"
+            )
             return Response(
                 {"error": "수강 신청 내역이 없습니다"},
                 status=status.HTTP_404_NOT_FOUND
@@ -301,12 +334,20 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
 
         # 3. 상태 검증
         if enrollment.status == 'completed':
+            logger.warning(
+                f"Course already completed: user_id={user.id}, course_id={course.id}, "
+                f"enrollment_id={enrollment.id}"
+            )
             return Response(
                 {"error": "이미 완료된 수업입니다"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         if enrollment.status == 'cancelled':
+            logger.warning(
+                f"Course completion failed - cancelled: user_id={user.id}, course_id={course.id}, "
+                f"enrollment_id={enrollment.id}"
+            )
             return Response(
                 {"error": "취소된 수업입니다"},
                 status=status.HTTP_400_BAD_REQUEST
@@ -316,6 +357,11 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
         enrollment.status = 'completed'
         enrollment.completed_at = timezone.now()
         enrollment.save()
+
+        logger.info(
+            f"Course completed: user_id={user.id}, course_id={course.id}, "
+            f"enrollment_id={enrollment.id}"
+        )
 
         # 5. 성공 응답
         return Response(

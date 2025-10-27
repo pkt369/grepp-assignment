@@ -1,3 +1,4 @@
+import logging
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
@@ -14,6 +15,8 @@ from .filters import TestFilter
 from payments.strategies import PaymentStrategyFactory
 from common.redis_lock import redis_lock
 from common.redis_client import mark_test_updated
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema_view(
@@ -166,6 +169,9 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
                 # 4. 비즈니스 로직 검증
                 # 4-1. 중복 응시 체크
                 if TestRegistration.objects.filter(user=user, test=test).exists():
+                    logger.warning(
+                        f"Duplicate test application attempt: user_id={user.id}, test_id={test.id}"
+                    )
                     return Response(
                         {"error": "이미 응시 신청한 시험입니다"},
                         status=status.HTTP_400_BAD_REQUEST
@@ -173,6 +179,10 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
 
                 # 4-2. 응시 가능 기간 검증
                 if not test.is_available():
+                    logger.warning(
+                        f"Test not available: user_id={user.id}, test_id={test.id}, "
+                        f"start={test.start_date}, end={test.end_date}"
+                    )
                     return Response(
                         {"error": "현재 응시 가능한 기간이 아닙니다"},
                         status=status.HTTP_400_BAD_REQUEST
@@ -180,6 +190,10 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
 
                 # 4-3. 금액 일치 검증 -> 할인 정책이 있을 경우 삭제 필요
                 if validated_data['amount'] != test.price:
+                    logger.warning(
+                        f"Price mismatch: user_id={user.id}, test_id={test.id}, "
+                        f"expected={test.price}, received={validated_data['amount']}"
+                    )
                     return Response(
                         {"error": "결제 금액이 시험 가격과 일치하지 않습니다"},
                         status=status.HTTP_400_BAD_REQUEST
@@ -229,6 +243,11 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
                     )
 
                     # 6. 성공 응답
+                    logger.info(
+                        f"Test application success: user_id={user.id}, test_id={test.id}, "
+                        f"payment_id={payment.id}, registration_id={registration.id}, "
+                        f"payment_method={payment_strategy.get_payment_method()}"
+                    )
                     return Response(
                         {
                             "message": "시험 응시 신청이 완료되었습니다",
@@ -242,6 +261,10 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
 
                 except ValueError as e:
                     # 지원하지 않는 결제 수단
+                    logger.error(
+                        f"Invalid payment method: user_id={user.id}, test_id={test.id}, error={str(e)}",
+                        exc_info=True
+                    )
                     return Response(
                         {"error": str(e)},
                         status=status.HTTP_400_BAD_REQUEST
@@ -250,11 +273,18 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         except Exception as e:
             # Lock 획득 실패인지 확인
             if "Failed to acquire lock" in str(e):
+                logger.warning(
+                    f"Lock acquisition failed: user_id={user.id}, test_id={test.id}"
+                )
                 return Response(
                     {"error": "잠시 후 다시 시도해주세요"},
                     status=status.HTTP_409_CONFLICT
                 )
             # 기타 예외
+            logger.error(
+                f"Test application failed: user_id={user.id}, test_id={test.id}, error={str(e)}",
+                exc_info=True
+            )
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -297,6 +327,9 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         ).first()
 
         if not registration:
+            logger.warning(
+                f"Test completion failed - no registration: user_id={user.id}, test_id={test.id}"
+            )
             return Response(
                 {"error": "응시 신청 내역이 없습니다"},
                 status=status.HTTP_404_NOT_FOUND
@@ -304,12 +337,20 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
 
         # 3. 상태 검증
         if registration.status == 'completed':
+            logger.warning(
+                f"Test already completed: user_id={user.id}, test_id={test.id}, "
+                f"registration_id={registration.id}"
+            )
             return Response(
                 {"error": "이미 완료된 시험입니다"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         if registration.status == 'cancelled':
+            logger.warning(
+                f"Test completion failed - cancelled: user_id={user.id}, test_id={test.id}, "
+                f"registration_id={registration.id}"
+            )
             return Response(
                 {"error": "취소된 시험입니다"},
                 status=status.HTTP_400_BAD_REQUEST
@@ -319,6 +360,11 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         registration.status = 'completed'
         registration.completed_at = timezone.now()
         registration.save()
+
+        logger.info(
+            f"Test completed: user_id={user.id}, test_id={test.id}, "
+            f"registration_id={registration.id}"
+        )
 
         # 5. 성공 응답
         return Response(

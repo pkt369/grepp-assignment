@@ -1,3 +1,4 @@
+import logging
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
@@ -14,6 +15,8 @@ from tests.models import TestRegistration
 from courses.models import CourseRegistration
 from common.redis_lock import redis_lock
 from common.redis_client import mark_test_updated, mark_course_updated
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema_view(
@@ -143,6 +146,11 @@ class PaymentCancelViewSet(viewsets.GenericViewSet):
 
         # 2. 본인 결제인지 권한 확인
         if payment.user != request.user:
+            logger.warning(
+                f"Unauthorized payment cancellation attempt: "
+                f"payment_id={payment.id}, payment_user={payment.user.id}, "
+                f"request_user={request.user.id}"
+            )
             return Response(
                 {"error": "본인의 결제만 취소할 수 있습니다"},
                 status=status.HTTP_403_FORBIDDEN
@@ -159,6 +167,10 @@ class PaymentCancelViewSet(viewsets.GenericViewSet):
 
                     # 5. 이미 취소/환불되었는지 확인
                     if payment.status in ['cancelled', 'refunded']:
+                        logger.warning(
+                            f"Payment already cancelled: payment_id={payment.id}, "
+                            f"status={payment.status}, user_id={request.user.id}"
+                        )
                         return Response(
                             {"error": "이미 취소된 결제입니다"},
                             status=status.HTTP_400_BAD_REQUEST
@@ -191,6 +203,11 @@ class PaymentCancelViewSet(viewsets.GenericViewSet):
                         # Mark course as updated in Redis after transaction commits
                         transaction.on_commit(lambda: mark_course_updated(course_id))
 
+                logger.info(
+                    f"Payment cancelled successfully: payment_id={payment.id}, "
+                    f"user_id={request.user.id}, payment_type={payment.payment_type}"
+                )
+
                 # 8. 성공 응답
                 return Response(
                     {
@@ -204,11 +221,20 @@ class PaymentCancelViewSet(viewsets.GenericViewSet):
         except Exception as e:
             # Lock 획득 실패인지 확인
             if "Failed to acquire lock" in str(e):
+                logger.warning(
+                    f"Lock acquisition failed for payment cancellation: "
+                    f"payment_id={payment.id}, user_id={request.user.id}"
+                )
                 return Response(
                     {"error": "잠시 후 다시 시도해주세요"},
                     status=status.HTTP_409_CONFLICT
                 )
             # 기타 예외
+            logger.error(
+                f"Payment cancellation failed: payment_id={payment.id}, "
+                f"user_id={request.user.id}, error={str(e)}",
+                exc_info=True
+            )
             return Response(
                 {"error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
