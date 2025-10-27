@@ -1,4 +1,5 @@
 import time
+import logging
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
 from accounts.models import User
@@ -60,8 +61,19 @@ class Command(BaseCommand):
             action='store_true',
             help='Skip registration/payment seeding'
         )
+        parser.add_argument(
+            '--quiet',
+            action='store_true',
+            help='Disable all logging output (only show summary)'
+        )
 
     def handle(self, *args, **options):
+        # Always disable logging during seed operations
+        # Set all loggers to CRITICAL level (effectively disabling INFO/WARNING/ERROR logs)
+        logging.disable(logging.CRITICAL)
+        # Also disable Django's SQL query logging
+        logging.getLogger('django.db.backends').setLevel(logging.CRITICAL)
+
         total_start_time = time.time()
 
         self.stdout.write(
@@ -74,13 +86,17 @@ class Command(BaseCommand):
 
         step_times = {}
 
+        # Always set verbosity to 0 to disable output from sub-commands
+        verbosity = 0
+
         # Step 1: Seed Users
         if not options['skip_users']:
             step_start = time.time()
             call_command(
                 'seed_users',
                 count=options['users'],
-                clear=options['clear']
+                clear=options['clear'],
+                verbosity=verbosity
             )
             step_times['users'] = time.time() - step_start
 
@@ -91,7 +107,8 @@ class Command(BaseCommand):
                 'seed_tests',
                 count=options['tests'],
                 batch_size=10000,
-                clear=options['clear']
+                clear=options['clear'],
+                verbosity=verbosity
             )
             step_times['tests'] = time.time() - step_start
 
@@ -102,7 +119,8 @@ class Command(BaseCommand):
                 'seed_courses',
                 count=options['courses'],
                 batch_size=10000,
-                clear=options['clear']
+                clear=options['clear'],
+                verbosity=verbosity
             )
             step_times['courses'] = time.time() - step_start
 
@@ -112,7 +130,8 @@ class Command(BaseCommand):
             call_command(
                 'seed_registrations',
                 per_user=options['registrations_per_user'],
-                clear=options['clear']
+                clear=options['clear'],
+                verbosity=verbosity
             )
             step_times['registrations'] = time.time() - step_start
 

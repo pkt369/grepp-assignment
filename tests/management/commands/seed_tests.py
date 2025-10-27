@@ -1,5 +1,6 @@
 import time
 import random
+import logging
 from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -29,6 +30,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Disable logging during seed operations
+        logging.disable(logging.CRITICAL)
         count = options['count']
         batch_size = options['batch_size']
         clear = options['clear']

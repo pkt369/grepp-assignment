@@ -1,5 +1,6 @@
 import time
 import json
+import logging
 from decimal import Decimal
 from django.core.management.base import BaseCommand
 from django.test.utils import override_settings
@@ -30,6 +31,8 @@ class Command(BaseCommand):
 
     @override_settings(DEBUG=True, ALLOWED_HOSTS=['*'])
     def handle(self, *args, **options):
+        # Disable logging during benchmark
+        logging.disable(logging.CRITICAL)
         output_file = options['output']
         num_runs = options['runs']
 

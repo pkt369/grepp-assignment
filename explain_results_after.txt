@@ -1,0 +1,166 @@
+EXPLAIN ANALYZE RESULTS
+================================================================================
+
+
+================================================================================
+Query: Test List - Basic Query
+Description: Basic test list with annotate for registration_count and is_registered_flag
+================================================================================
+
+SQL:
+SELECT "tests"."id", "tests"."title", "tests"."description", "tests"."price", "tests"."start_at", "tests"."end_at", "tests"."created_at", "tests"."updated_at", "tests"."search_vector", "tests"."registration_count", EXISTS(SELECT 1 AS "a" FROM "test_registrations" U0 WHERE (U0."test_id" = ("tests"."id") AND U0."user_id" = 12) LIMIT 1) AS "is_registered_flag" FROM "tests" ORDER BY "tests"."created_at" DESC LIMIT 20
+
+EXPLAIN ANALYZE:
+--------------------------------------------------------------------------------
+Limit  (cost=0.42..165.70 rows=20 width=443) (actual time=0.007..0.010 rows=20 loops=1)
+  Buffers: shared hit=6
+  ->  Index Scan using idx_test_created on tests  (cost=0.42..8263539.42 rows=1000000 width=443) (actual time=0.007..0.010 rows=20 loops=1)
+        Buffers: shared hit=6
+        SubPlan 2
+          ->  Bitmap Heap Scan on test_registrations u0  (cost=4.17..11.28 rows=3 width=8) (actual time=0.002..0.002 rows=0 loops=1)
+                Recheck Cond: (user_id = 12)
+                Buffers: shared hit=1
+                ->  Bitmap Index Scan on idx_test_reg_user  (cost=0.00..4.17 rows=3 width=0) (actual time=0.001..0.001 rows=0 loops=1)
+                      Index Cond: (user_id = 12)
+                      Buffers: shared hit=1
+Planning Time: 0.052 ms
+Execution Time: 0.019 ms
+
+
+================================================================================
+Query: Test List - FTS Search
+Description: Full-text search on tests using search_vector index
+================================================================================
+
+SQL:
+SELECT "tests"."id", "tests"."title", "tests"."description", "tests"."price", "tests"."start_at", "tests"."end_at", "tests"."created_at", "tests"."updated_at", "tests"."search_vector", "tests"."registration_count", EXISTS(SELECT 1 AS "a" FROM "test_registrations" U0 WHERE (U0."test_id" = ("tests"."id") AND U0."user_id" = 12) LIMIT 1) AS "is_registered_flag" FROM "tests" WHERE "tests"."search_vector" @@ (websearch_to_tsquery('simple'::regconfig, 'Django')) ORDER BY "tests"."created_at" DESC LIMIT 20
+
+EXPLAIN ANALYZE:
+--------------------------------------------------------------------------------
+Limit  (cost=0.42..183.17 rows=20 width=443) (actual time=0.010..0.033 rows=20 loops=1)
+  Buffers: shared hit=17
+  ->  Index Scan using idx_test_created on tests  (cost=0.42..907050.82 rows=99267 width=443) (actual time=0.010..0.032 rows=20 loops=1)
+        Filter: (search_vector @@ '''django'''::tsquery)
+        Rows Removed by Filter: 179
+        Buffers: shared hit=17
+        SubPlan 2
+          ->  Bitmap Heap Scan on test_registrations u0  (cost=4.17..11.28 rows=3 width=8) (actual time=0.002..0.002 rows=0 loops=1)
+                Recheck Cond: (user_id = 12)
+                Buffers: shared hit=1
+                ->  Bitmap Index Scan on idx_test_reg_user  (cost=0.00..4.17 rows=3 width=0) (actual time=0.001..0.001 rows=0 loops=1)
+                      Index Cond: (user_id = 12)
+                      Buffers: shared hit=1
+Planning:
+  Buffers: shared hit=1
+Planning Time: 0.071 ms
+Execution Time: 0.043 ms
+
+
+================================================================================
+Query: Test List - Status Filter (available)
+Description: Filter tests by availability (start_at, end_at)
+================================================================================
+
+SQL:
+SELECT "tests"."id", "tests"."title", "tests"."description", "tests"."price", "tests"."start_at", "tests"."end_at", "tests"."created_at", "tests"."updated_at", "tests"."search_vector", "tests"."registration_count", EXISTS(SELECT 1 AS "a" FROM "test_registrations" U0 WHERE (U0."test_id" = ("tests"."id") AND U0."user_id" = 12) LIMIT 1) AS "is_registered_flag" FROM "tests" WHERE ("tests"."end_at" >= '2025-10-27T10:59:00.832302+00:00'::timestamptz AND "tests"."start_at" <= '2025-10-27T10:59:00.832302+00:00'::timestamptz) ORDER BY "tests"."created_at" DESC LIMIT 20
+
+EXPLAIN ANALYZE:
+--------------------------------------------------------------------------------
+Limit  (cost=0.42..170.78 rows=20 width=443) (actual time=0.008..0.038 rows=20 loops=1)
+  Buffers: shared hit=29
+  ->  Index Scan using idx_test_created on tests  (cost=0.42..2415118.41 rows=283547 width=443) (actual time=0.008..0.038 rows=20 loops=1)
+        Filter: ((end_at >= '2025-10-27 10:59:00.832302+00'::timestamp with time zone) AND (start_at <= '2025-10-27 10:59:00.832302+00'::timestamp with time zone))
+        Rows Removed by Filter: 371
+        Buffers: shared hit=29
+        SubPlan 2
+          ->  Bitmap Heap Scan on test_registrations u0  (cost=4.17..11.28 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=1)
+                Recheck Cond: (user_id = 12)
+                Buffers: shared hit=1
+                ->  Bitmap Index Scan on idx_test_reg_user  (cost=0.00..4.17 rows=3 width=0) (actual time=0.001..0.001 rows=0 loops=1)
+                      Index Cond: (user_id = 12)
+                      Buffers: shared hit=1
+Planning Time: 0.055 ms
+Execution Time: 0.045 ms
+
+
+================================================================================
+Query: Test List - Popular Sort
+Description: Sort by registration count (annotated field)
+================================================================================
+
+SQL:
+SELECT "tests"."id", "tests"."title", "tests"."description", "tests"."price", "tests"."start_at", "tests"."end_at", "tests"."created_at", "tests"."updated_at", "tests"."search_vector", "tests"."registration_count", EXISTS(SELECT 1 AS "a" FROM "test_registrations" U0 WHERE (U0."test_id" = ("tests"."id") AND U0."user_id" = 12) LIMIT 1) AS "is_registered_flag" FROM "tests" ORDER BY "tests"."registration_count" DESC, "tests"."created_at" DESC LIMIT 20
+
+EXPLAIN ANALYZE:
+--------------------------------------------------------------------------------
+Limit  (cost=0.42..167.15 rows=20 width=443) (actual time=0.005..0.008 rows=20 loops=1)
+  Buffers: shared hit=6
+  ->  Index Scan using idx_test_popular on tests  (cost=0.42..8336444.61 rows=1000000 width=443) (actual time=0.004..0.007 rows=20 loops=1)
+        Buffers: shared hit=6
+        SubPlan 2
+          ->  Bitmap Heap Scan on test_registrations u0  (cost=4.17..11.28 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=1)
+                Recheck Cond: (user_id = 12)
+                Buffers: shared hit=1
+                ->  Bitmap Index Scan on idx_test_reg_user  (cost=0.00..4.17 rows=3 width=0) (actual time=0.000..0.001 rows=0 loops=1)
+                      Index Cond: (user_id = 12)
+                      Buffers: shared hit=1
+Planning Time: 0.034 ms
+Execution Time: 0.012 ms
+
+
+================================================================================
+Query: Course List - FTS Search
+Description: Full-text search on courses using search_vector index
+================================================================================
+
+SQL:
+SELECT "courses"."id", "courses"."title", "courses"."description", "courses"."price", "courses"."start_at", "courses"."end_at", "courses"."created_at", "courses"."updated_at", "courses"."search_vector", "courses"."registration_count", EXISTS(SELECT 1 AS "a" FROM "course_registrations" U0 WHERE (U0."course_id" = ("courses"."id") AND U0."user_id" = 12) LIMIT 1) AS "is_registered_flag" FROM "courses" WHERE "courses"."search_vector" @@ (websearch_to_tsquery('simple'::regconfig, 'Python')) ORDER BY "courses"."created_at" DESC LIMIT 20
+
+EXPLAIN ANALYZE:
+--------------------------------------------------------------------------------
+Limit  (cost=0.42..184.86 rows=20 width=482) (actual time=0.006..0.026 rows=20 loops=1)
+  Buffers: shared hit=18
+  ->  Index Scan using idx_course_created on courses  (cost=0.42..910804.82 rows=98767 width=482) (actual time=0.006..0.025 rows=20 loops=1)
+        Filter: (search_vector @@ '''python'''::tsquery)
+        Rows Removed by Filter: 180
+        Buffers: shared hit=18
+        SubPlan 2
+          ->  Bitmap Heap Scan on course_registrations u0  (cost=4.17..11.28 rows=3 width=8) (actual time=0.001..0.001 rows=0 loops=1)
+                Recheck Cond: (user_id = 12)
+                Buffers: shared hit=1
+                ->  Bitmap Index Scan on idx_course_reg_user  (cost=0.00..4.17 rows=3 width=0) (actual time=0.000..0.000 rows=0 loops=1)
+                      Index Cond: (user_id = 12)
+                      Buffers: shared hit=1
+Planning:
+  Buffers: shared hit=1
+Planning Time: 0.039 ms
+Execution Time: 0.030 ms
+
+
+================================================================================
+Query: Payment List - With Content Type Join
+Description: Payment list with select_related on content_type
+================================================================================
+
+SQL:
+SELECT "payments"."id", "payments"."user_id", "payments"."payment_type", "payments"."content_type_id", "payments"."object_id", "payments"."amount", "payments"."payment_method", "payments"."external_transaction_id", "payments"."status", "payments"."refund_reason", "payments"."paid_at", "payments"."cancelled_at", "payments"."search_vector", "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "payments" INNER JOIN "django_content_type" ON ("payments"."content_type_id" = "django_content_type"."id") WHERE "payments"."user_id" = 12 ORDER BY "payments"."paid_at" DESC LIMIT 20
+
+EXPLAIN ANALYZE:
+--------------------------------------------------------------------------------
+Limit  (cost=10.94..10.95 rows=1 width=591) (actual time=0.005..0.005 rows=0 loops=1)
+  Buffers: shared hit=2
+  ->  Sort  (cost=10.94..10.95 rows=1 width=591) (actual time=0.005..0.005 rows=0 loops=1)
+        Sort Key: payments.paid_at DESC
+        Sort Method: quicksort  Memory: 25kB
+        Buffers: shared hit=2
+        ->  Nested Loop  (cost=0.14..10.93 rows=1 width=591) (actual time=0.004..0.005 rows=0 loops=1)
+              Buffers: shared hit=2
+              ->  Seq Scan on payments  (cost=0.00..2.67 rows=1 width=151) (actual time=0.004..0.004 rows=0 loops=1)
+                    Filter: (user_id = 12)
+                    Rows Removed by Filter: 54
+                    Buffers: shared hit=2
+              ->  Index Scan using django_content_type_pkey on django_content_type  (cost=0.14..8.16 rows=1 width=440) (never executed)
+                    Index Cond: (id = payments.content_type_id)
+Planning Time: 0.032 ms
+Execution Time: 0.010 ms
+

@@ -1,3 +1,4 @@
+import logging
 from django.core.management.base import BaseCommand
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
@@ -23,6 +24,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Disable logging during query analysis
+        logging.disable(logging.CRITICAL)
         output_file = options['output']
 
         self.stdout.write(self.style.SUCCESS('Capturing actual queries from ViewSets...'))

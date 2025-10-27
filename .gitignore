@@ -241,3 +241,5 @@ postgres_data/
 
 benchmark_results.json
 explain_results.txt
+
+.claude

@@ -21,6 +21,7 @@ class Test(models.Model):
             models.Index(fields=['start_at', 'end_at'], name='idx_test_dates'),
             models.Index(fields=['-created_at'], name='idx_test_created'),
             models.Index(fields=['start_at', 'end_at', '-created_at'], name='idx_test_composite'),
+            models.Index(fields=['-registration_count', '-created_at'], name='idx_test_popular'),
             GinIndex(fields=['search_vector'], name='idx_test_search'),
         ]
 

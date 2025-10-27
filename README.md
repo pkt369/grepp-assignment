@@ -19,6 +19,7 @@ Django REST Framework를 사용한 대규모 시험 응시 및 수업 수강 신
 - 페이지네이션, 필터링, 정렬 기능
 - Docker 기반 배포 ( docker compose 사용 )
 - 중복 결제 방지 ( Redis Lock 사용 )
+- 중복 취소 방지 ( Redis Lock + Pessimistic Lock 적용 ( row level lock ))
 
 ### 참고 사항
 - 실제 결제 시스템의 2단계 구조( Pre-Order => Approve ) 를 고려했으나, 현재 과제 범위에서는 **결제와 주문을 하나의 트랜잭션으로 단순화하여 구현**하였습니다.
@@ -32,9 +33,9 @@ Django REST Framework를 사용한 대규모 시험 응시 및 수업 수강 신
 
 ### 메인 로직
 sort: popular 에서 join + group by + sort 로 성능이 매우 떨어져 비정규화 + 스케줄러 를 이용해 해결하였습니다.
-업데이트된 tests id 나 courses id 를 레디스를 통해 저장하고, 1분 마다 스케줄러가 동작하면서 저장한 ids 를 이용하여 데이터베이스 업데이트 해주는 방식입니다.
+등록이나 취소가 된 경우 해당 tests id 나 courses id 를 레디스를 통해 저장하고, 1분 마다 스케줄러가 동작하면서 저장한 ids 를 이용하여 데이터베이스 컬럼(registration_count) 업데이트 해주는 방식을 채택하였습니다.
 
-`registration_count = models.IntegerField(default=0, db_index=True)` 를 model 에 추가하고, join 없이 바로 가져올수 있도록 하였습니다.
+이 로직을 채택함으로써 join 을 제거하고 sorting 을 빠르게 진행할 수 있게 되었습니다.
 
 <br>
 
@@ -83,6 +84,8 @@ sort: popular 에서 join + group by + sort 로 성능이 매우 떨어져 비�
 <br>
 
 ## 실행 방법
+위에서 순서대로 실행해야 합니다.
+
 ```bash
 git clone https://github.com/pkt369/grepp-assignment.git
 cd grepp-assignment

@@ -1,5 +1,6 @@
 import time
 import random
+import logging
 from django.core.management.base import BaseCommand
 from django.contrib.contenttypes.models import ContentType
 from accounts.models import User
@@ -25,6 +26,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Disable logging during seed operations
+        logging.disable(logging.CRITICAL)
         per_user = options['per_user']
         clear = options['clear']
 

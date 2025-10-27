@@ -21,6 +21,7 @@ class Course(models.Model):
             models.Index(fields=['start_at', 'end_at'], name='idx_course_dates'),
             models.Index(fields=['-created_at'], name='idx_course_created'),
             models.Index(fields=['start_at', 'end_at', '-created_at'], name='idx_course_composite'),
+            models.Index(fields=['-registration_count', '-created_at'], name='idx_course_popular'),
             GinIndex(fields=['search_vector'], name='idx_course_search'),
         ]
 
