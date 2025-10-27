@@ -13,6 +13,7 @@ from .serializers import TestSerializer, TestApplySerializer
 from .filters import TestFilter
 from payments.strategies import PaymentStrategyFactory
 from common.redis_lock import redis_lock
+from common.redis_client import mark_test_updated
 
 
 @extend_schema_view(
@@ -67,7 +68,7 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         """
         쿼리셋 최적화
 
-        - annotate로 registration_count 계산
+        - registration_count 필드 사용 (사전 집계)
         - annotate로 is_registered_flag 계산 (Exists 사용)
         - 정렬 처리
         """
@@ -79,27 +80,7 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         # 정렬 방식 확인
         sort = self.request.query_params.get('sort', 'created')
 
-        # Popular Sort일 때는 JOIN 사용, 그 외에는 서브쿼리 사용
-        if sort == 'popular':
-            # 인기순: JOIN을 사용하여 registration_count 계산 (정렬에 효율적)
-            queryset = queryset.annotate(
-                registration_count=Count('registrations')
-            )
-        else:
-            # 서브쿼리 사용 (LIMIT 쿼리에 효율적)
-            queryset = queryset.annotate(
-                registration_count=Coalesce(
-                    Subquery(
-                        TestRegistration.objects.filter(test=OuterRef('pk'))
-                        .values('test')
-                        .annotate(count=Count('*'))
-                        .values('count')
-                    ),
-                    0
-                )
-            )
-
-        # 2. is_registered_flag 추가 ( 현재 사용자의 응시 여부 )
+        # is_registered_flag 추가 ( 현재 사용자의 응시 여부 )
         # Exists를 사용하여 네트워크 N + 1 호출 제거
         if user.is_authenticated:
             queryset = queryset.annotate(
@@ -111,9 +92,9 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
                 )
             )
 
-        # 3. 정렬 처리
+        # 정렬 처리
         if sort == 'popular':
-            # 인기순: 응시자 많은 순
+            # 인기순: 사전 집계된 registration_count 사용
             queryset = queryset.order_by('-registration_count', '-created_at')
         elif sort == 'created':
             # 최신순: 생성일 기준
@@ -238,6 +219,9 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
                             test=test,
                             status='applied'
                         )
+
+                        # Mark test as updated in Redis after transaction commits
+                        transaction.on_commit(lambda: mark_test_updated(test.id))
 
                     # 5-4. 거래 메타데이터 가져오기 (로깅/분석용)
                     metadata = payment_strategy.get_transaction_metadata(

@@ -23,8 +23,16 @@ Django REST Framework를 사용한 대규모 시험 응시 및 수업 수강 신
 ### 참고 사항
 - 실제 결제 시스템의 2단계 구조( Pre-Order => Approve ) 를 고려했으나, 현재 과제 범위에서는 결제와 주문을 하나의 트랜잭션으로 단순화하여 구현하였습니다.
 - .env 는 현업에서는 배포하지 않으나 과제를 쉽게 실행하기 위해 이번 프로젝트에서만 같이 배포합니다.
-- 검색은 Postgresql 의 FTS 로 진행했으나, 더 빠른 속도를 위해 Elasitc Search 나 MeiliSerach 채택 가능.
+- 검색은 Postgresql 의 FTS 로 진행하였습니다.
 - 실제로는 주석을 많이 달지 않으나, 이해를 위해 주석을 많이 달아두었습니다.
+
+<br>
+
+### 메인 로직
+sort: popular 에서 join + group by + sort 로 성능이 매우 떨어져 비정규화 + 스케줄러 를 이용해 해결하였습니다.
+업데이트된 tests id 나 courses id 를 레디스를 통해 저장하고, 1분 마다 스케줄러가 동작하면서 저장한 ids 를 이용하여 데이터베이스 업데이트 해주는 방식입니다.
+
+`registration_count = models.IntegerField(default=0, db_index=True)` 를 model 에 추가하고, join 없이 바로 가져올수 있도록 하였습니다.
 
 <br>
 
@@ -73,11 +81,17 @@ Django REST Framework를 사용한 대규모 시험 응시 및 수업 수강 신
 <br>
 
 ## 실행 방법
-```
-https://github.com/pkt369/grepp-assignment.git
+```bash
+git clone https://github.com/pkt369/grepp-assignment.git
 cd grepp-assignment
 
+# 서버 실행
 docker compose up -d --build
+
+# 마이그레이션
+docker compose exec web python manage.py migrate
+
+# seed 데이터 생성
 docker compose exec web python manage.py seed_all
 ```
 

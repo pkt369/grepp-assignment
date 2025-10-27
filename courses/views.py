@@ -13,6 +13,7 @@ from .serializers import CourseSerializer, CourseEnrollSerializer
 from .filters import CourseFilter
 from payments.strategies import PaymentStrategyFactory
 from common.redis_lock import redis_lock
+from common.redis_client import mark_course_updated
 
 
 @extend_schema_view(
@@ -67,7 +68,7 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
         """
         쿼리셋 최적화
 
-        - annotate로 registration_count 계산
+        - registration_count 필드 사용 (사전 집계)
         - annotate로 is_registered_flag 계산 (Exists 사용)
         - 정렬 처리
         """
@@ -77,26 +78,7 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
 
         sort = self.request.query_params.get('sort', 'created')
 
-        # Popular Sort일 때는 JOIN 사용 ( 집계 후 정렬이라 느림 )
-        if sort == 'popular':
-            queryset = queryset.annotate(
-                registration_count=Count('registrations')
-            )
-        else:
-            # 서브쿼리 사용 ( 정렬이 서브쿼리와 상관없어서 더 빠름 )
-            queryset = queryset.annotate(
-                registration_count=Coalesce(
-                    Subquery(
-                        CourseRegistration.objects.filter(course=OuterRef('pk'))
-                        .values('course')
-                        .annotate(count=Count('*'))
-                        .values('count')
-                    ),
-                    0
-                )
-            )
-
-        # 2. is_registered_flag 추가 ( 현재 사용자의 수강 여부 )
+        # is_registered_flag 추가 ( 현재 사용자의 수강 여부 )
         # Exists를 사용하여 네트워크 N + 1 호출 제거
         if user.is_authenticated:
             queryset = queryset.annotate(
@@ -108,9 +90,9 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
                 )
             )
 
-        # 3. 정렬 처리
+        # 정렬 처리
         if sort == 'popular':
-            # 인기순: 수강자 많은 순
+            # 인기순: 사전 집계된 registration_count 사용
             queryset = queryset.order_by('-registration_count', '-created_at')
         elif sort == 'created':
             # 최신순: 생성일 기준
@@ -234,6 +216,9 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
                             course=course,
                             status='enrolled'
                         )
+
+                        # Mark course as updated in Redis after transaction commits
+                        transaction.on_commit(lambda: mark_course_updated(course.id))
 
                     # 5-4. 거래 메타데이터 가져오기
                     metadata = payment_strategy.get_transaction_metadata(

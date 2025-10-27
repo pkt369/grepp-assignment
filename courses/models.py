@@ -13,6 +13,7 @@ class Course(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     search_vector = SearchVectorField(null=True, blank=True)
+    registration_count = models.IntegerField(default=0, db_index=True)
 
     class Meta:
         db_table = 'courses'

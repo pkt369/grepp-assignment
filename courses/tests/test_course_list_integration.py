@@ -77,6 +77,12 @@ class TestCourseListIntegration:
         CourseRegistration.objects.create(user=self.user3, course=django_course)
         CourseRegistration.objects.create(user=self.user2, course=python_course)
 
+        # Update registration counts
+        django_course.registration_count = 2
+        django_course.save()
+        python_course.registration_count = 1
+        python_course.save()
+
         # 1. 인증 없이 접근 시도
         url = reverse('course-list')
         response = self.client.get(url)
@@ -135,6 +141,8 @@ class TestCourseListIntegration:
 
         # 2. user1 등록
         CourseRegistration.objects.create(user=self.user1, course=course)
+        course.registration_count = 1
+        course.save()
 
         # 3. user1 다시 조회
         response = self.client.get(url)
@@ -198,6 +206,8 @@ class TestCourseListIntegration:
         )
         CourseRegistration.objects.create(user=self.user1, course=course)
         CourseRegistration.objects.create(user=self.user2, course=course)
+        course.registration_count = 2
+        course.save()
 
         self.client.force_authenticate(user=self.user1)
 
@@ -334,6 +344,8 @@ class TestCourseListIntegration:
         )
         CourseRegistration.objects.create(user=self.user1, course=django_popular)
         CourseRegistration.objects.create(user=self.user2, course=django_popular)
+        django_popular.registration_count = 2
+        django_popular.save()
 
         # 현재 Django 수업 (덜 인기)
         django_less = Course.objects.create(
