@@ -75,11 +75,11 @@ sort: popular 에서 join + group by + sort 로 성능이 매우 떨어져 비�
 
 ## 기술 스택
 
-**Backend**: Python 3.13, Django 5.2.7, Django REST Framework 3.16.1, djangorestframework-simplejwt 5.5.1
-**Database**: PostgreSQL 17
-**DevOps**: Docker, Docker Compose, Git, GitHub, Redis: 7.2
-**Libraries**: psycopg2-binary - Postgres 어댑터, django-filter - 필터링, drf-spectacular - API 문서 자동 생성, python-dotenv - 환경 변수 관리
-**Testing**: pytest - 테스트 프레임 워크, pytest-django - Django 테스트 통합, factory-boy: 테스트 데이터 생성
+**Backend**: Python 3.13, Django 5.2.7, Django REST Framework 3.16.1, djangorestframework-simplejwt 5.5.1 <br>
+**Database**: PostgreSQL 17 <br>
+**DevOps**: Docker, Docker Compose, Git, GitHub, Redis: 7.2 <br>
+**Libraries**: psycopg2-binary - Postgres 어댑터, django-filter - 필터링, drf-spectacular - API 문서 자동 생성, python-dotenv - 환경 변수 관리 <br>
+**Testing**: pytest - 테스트 프레임 워크, pytest-django - Django 테스트 통합, factory-boy: 테스트 데이터 생성 <br>
 
 <br>
 
