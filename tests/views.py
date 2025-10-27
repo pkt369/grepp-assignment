@@ -181,7 +181,7 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
                 if not test.is_available():
                     logger.warning(
                         f"Test not available: user_id={user.id}, test_id={test.id}, "
-                        f"start={test.start_date}, end={test.end_date}"
+                        f"start={test.start_at}, end={test.end_at}"
                     )
                     return Response(
                         {"error": "현재 응시 가능한 기간이 아닙니다"},
