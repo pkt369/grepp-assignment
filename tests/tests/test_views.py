@@ -65,6 +65,12 @@ class TestTestViewSet:
         # test2에 한 사용자만 등록
         TestRegistration.objects.create(user=self.user, test=self.test2)
 
+        # Update registration counts
+        self.test1.registration_count = 2
+        self.test1.save()
+        self.test2.registration_count = 1
+        self.test2.save()
+
     def test_list_tests_unauthenticated(self):
         """실패: 인증되지 않은 요청은 401 반환"""
         url = reverse('test-list')

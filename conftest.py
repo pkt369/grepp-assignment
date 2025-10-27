@@ -4,6 +4,17 @@ from django.conf import settings
 from rest_framework.test import APIClient
 
 
+@pytest.fixture(autouse=True)
+def disable_debug_toolbar(settings):
+    """테스트 환경에서 debug_toolbar 비활성화"""
+    settings.DEBUG = False
+    # debug_toolbar를 INSTALLED_APPS와 MIDDLEWARE에서 제거
+    if 'debug_toolbar' in settings.INSTALLED_APPS:
+        settings.INSTALLED_APPS.remove('debug_toolbar')
+    if 'debug_toolbar.middleware.DebugToolbarMiddleware' in settings.MIDDLEWARE:
+        settings.MIDDLEWARE.remove('debug_toolbar.middleware.DebugToolbarMiddleware')
+
+
 @pytest.fixture(scope='session')
 def django_db_setup(django_db_setup, django_db_blocker):
     """테스트 데이터베이스 설정"""

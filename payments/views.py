@@ -13,6 +13,7 @@ from payments.filters import PaymentFilter
 from tests.models import TestRegistration
 from courses.models import CourseRegistration
 from common.redis_lock import redis_lock
+from common.redis_client import mark_test_updated, mark_course_updated
 
 
 @extend_schema_view(
@@ -168,19 +169,27 @@ class PaymentCancelViewSet(viewsets.GenericViewSet):
                     payment.cancelled_at = timezone.now()
                     payment.save()
 
-                    # 7. 관련 Registration/Enrollment 삭제 (메인 비즈니스 로직)
+                    # 7. 관련 Registration 삭제 (메인 비즈니스 로직)
                     if payment.payment_type == 'test' and payment.target:
                         # TestRegistration 삭제
+                        test_id = payment.target.id
                         TestRegistration.objects.filter(
                             user=request.user,
                             test=payment.target
                         ).delete()
+
+                        # Mark test as updated in Redis after transaction commits
+                        transaction.on_commit(lambda: mark_test_updated(test_id))
                     elif payment.payment_type == 'course' and payment.target:
                         # CourseRegistration 삭제
+                        course_id = payment.target.id
                         CourseRegistration.objects.filter(
                             user=request.user,
                             course=payment.target
                         ).delete()
+
+                        # Mark course as updated in Redis after transaction commits
+                        transaction.on_commit(lambda: mark_course_updated(course_id))
 
                 # 8. 성공 응답
                 return Response(

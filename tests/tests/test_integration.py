@@ -81,6 +81,12 @@ class TestListIntegrationTests:
         TestRegistration.objects.create(user=self.user3, test=django_test)
         TestRegistration.objects.create(user=self.user2, test=python_test)
 
+        # Update registration counts
+        django_test.registration_count = 2
+        django_test.save()
+        python_test.registration_count = 1
+        python_test.save()
+
         # 1. 인증 없이 접근 시도
         url = reverse('test-list')
         response = self.client.get(url)
@@ -146,6 +152,8 @@ class TestListIntegrationTests:
 
         # 2. user1 등록
         TestRegistration.objects.create(user=self.user1, test=test)
+        test.registration_count = 1
+        test.save()
 
         # 3. user1 다시 조회
         response = self.client.get(url)
@@ -162,6 +170,8 @@ class TestListIntegrationTests:
 
         # 5. user2 등록
         TestRegistration.objects.create(user=self.user2, test=test)
+        test.registration_count = 2
+        test.save()
 
         # 6. 모든 사용자가 조회
         self.client.force_authenticate(user=self.user1)
@@ -204,6 +214,8 @@ class TestListIntegrationTests:
         TestRegistration.objects.create(user=self.user1, test=django_popular)
         TestRegistration.objects.create(user=self.user2, test=django_popular)
         TestRegistration.objects.create(user=self.user3, test=django_popular)
+        django_popular.registration_count = 3
+        django_popular.save()
 
         # 현재 응시 가능한 Django 시험 (덜 인기)
         django_less_popular = Test.objects.create(
@@ -214,6 +226,8 @@ class TestListIntegrationTests:
             end_at=self.now + timedelta(days=15)
         )
         TestRegistration.objects.create(user=self.user1, test=django_less_popular)
+        django_less_popular.registration_count = 1
+        django_less_popular.save()
 
         # 현재 응시 가능한 Python 시험
         Test.objects.create(
@@ -365,6 +379,8 @@ class TestListIntegrationTests:
         )
         TestRegistration.objects.create(user=self.user1, test=test)
         TestRegistration.objects.create(user=self.user2, test=test)
+        test.registration_count = 2
+        test.save()
 
         self.client.force_authenticate(user=self.user1)
 

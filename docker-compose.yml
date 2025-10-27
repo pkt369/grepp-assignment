@@ -44,6 +44,32 @@ services:
       timeout: 3s
       retries: 5
 
+  celery-worker:
+    build: .
+    env_file:
+      - .env
+    command: celery -A config worker -l info
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-beat:
+    build: .
+    env_file:
+      - .env
+    command: celery -A config beat -l info
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   redis_data:
